@@ -40,3 +40,6 @@
 - Hypothesis: VideoToolbox decodes the cameras' H.264 and NV12→I420 maps cleanly to our YuvFrame.
 - Falsified if: VT returns errors for the stream's SPS/PPS, or colors/planes are wrong after conversion.
 - Open concern: FFI not yet written/verified; default build uses openh264.
+
+## Verified (2026-11-08)
+- Live view confirmed end-to-end on real hardware: cloud relay → openh264 → **GPU glow shader** → egui, with cpal audio. Resolves the D6 open concern (GL path was compile-only). Fixes along the way: JSON error codes are strings (MFA), rustls needs an explicit `ring` provider, and the raw relay socket must send X-Client-UUID / X-Track-Id / X-Redirect-Times / X-Arrive-Latency (HTTP 400 without them).
