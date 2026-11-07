@@ -6,6 +6,7 @@
 //! before reading the response, so live/playback/talk use this manual socket instead.
 
 use crate::error::{Error, Result};
+use rustls::crypto::ring;
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, Stream};
 use std::io::{Read, Write};
