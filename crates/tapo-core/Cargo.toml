@@ -1,0 +1,19 @@
+[package]
+name = "tapo-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TP-Link Tapo cloud protocol: login, camera list, live/playback relay, commands, talk-back, alerts."
+
+[dependencies]
+reqwest = { version = "0.12.9", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rustls-pemfile = "2.2.0"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+hmac = "0.12.1"
+sha1 = "0.10.6"
+md-5 = "0.10.6"
+base64 = "0.22.1"
+uuid = { version = "1.11.0", features = ["v4"] }
+thiserror = "2.0.3"
