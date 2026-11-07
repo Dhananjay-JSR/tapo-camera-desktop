@@ -27,6 +27,10 @@ cat > "$APPDIR/Contents/Info.plist" <<PLIST
   <key>NSMicrophoneUsageDescription</key><string>Talk-back sends your voice to the camera speaker.</string>
 </dict></plist>
 PLIST
+# Ad-hoc sign so macOS shows the normal "unidentified developer" (right-click > Open) flow
+# instead of "is damaged" on download. (No Apple Developer certificate / notarization.)
+codesign --force --deep --sign - "$APPDIR" 2>/dev/null || true
+
 # Zip the .app (a bundle is a folder; zipping keeps it a single download). No .dmg, no installer.
 ( cd "$OUT" && ditto -c -k --sequesterRsrc --keepParent "$APP.app" "Tapo-Desktop-$VER-macos.zip" )
 echo "built: $APPDIR  and  $OUT/Tapo-Desktop-$VER-macos.zip"

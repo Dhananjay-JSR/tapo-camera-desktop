@@ -21,7 +21,10 @@ Sign in with your TP-Link account (two-factor supported) and view your cameras f
 Builds are produced automatically by GitHub Actions on the [Releases](../../releases) page.
 `latest` tracks `main`; `v*` tags are stable. No installer.
 
-- **macOS**: `Tapo Desktop.app` (zipped). Unzip and double-click. It is unsigned, so on first launch right-click the app and choose Open.
+- **macOS**: `Tapo Desktop.app` (zipped). Unzip, then right-click the app and choose **Open** (it is ad-hoc signed, not notarized). If macOS still says it is damaged, clear the download flag once:
+  ```sh
+  xattr -dr com.apple.quarantine "Tapo Desktop.app"
+  ```
 - **Windows**: a single `tapo-desktop.exe`. Just run it.
 - **Linux**: a single executable. Run `chmod +x` on it, then run it.
 
