@@ -1,7 +1,7 @@
 //! egui UI. All network work is delegated to the worker thread; the UI only sends `Cmd`s and
 //! renders `Evt`s, so it never blocks.
 
-use crate::decode::{yuv_to_rgb, YuvFrame};
+use crate::decode::YuvFrame;
 use crate::store;
 use crate::worker::{self, Cmd, Evt, Toggle};
 use std::collections::HashMap;
@@ -47,7 +47,8 @@ pub struct App {
     mic: Option<crate::audio_in::Mic>,
     frame_tx: Sender<YuvFrame>,
     frame_rx: Receiver<YuvFrame>,
-    texture: Option<egui::TextureHandle>,
+    video: crate::video_gl::GpuVideo,
+    aspect: f32,
     playing: bool,
 }
 
@@ -81,7 +82,8 @@ impl App {
             mic: None,
             frame_tx,
             frame_rx,
-            texture: None,
+            video: crate::video_gl::GpuVideo::new(),
+            aspect: 9.0 / 16.0,
             playing: false,
         }
     }
@@ -150,13 +152,8 @@ impl eframe::App for App {
             latest = Some(f);
         }
         if let Some(f) = latest {
-            let img = egui::ColorImage::from_rgb([f.w, f.h], &yuv_to_rgb(&f));
-            match &mut self.texture {
-                Some(t) => t.set(img, egui::TextureOptions::LINEAR),
-                None => {
-                    self.texture = Some(ctx.load_texture("cam", img, egui::TextureOptions::LINEAR))
-                }
-            }
+            self.aspect = f.h as f32 / f.w as f32;
+            self.video.set_frame(f);
         }
         if self.playing {
             ctx.request_repaint_after(std::time::Duration::from_millis(33));
@@ -272,7 +269,7 @@ impl App {
             if !streaming {
                 if ui.button("▶ Live view").clicked() {
                     self.live.insert(id.clone(), true);
-                    self.texture = None;
+                    self.video = crate::video_gl::GpuVideo::new();
                     self.playing = true;
                     let _ = self.tx.send(Cmd::StartLive {
                         id: id.clone(),
@@ -282,14 +279,15 @@ impl App {
             } else if ui.button("⏹ Stop").clicked() {
                 self.live.insert(id.clone(), false);
                 self.playing = false;
-                self.texture = None;
+                self.video = crate::video_gl::GpuVideo::new();
                 let _ = self.tx.send(Cmd::StopLive(id.clone()));
             }
         });
-        if let Some(tex) = &self.texture {
-            let avail = ui.available_width().min(960.0);
-            let aspect = tex.size()[1] as f32 / tex.size()[0] as f32;
-            ui.image((tex.id(), egui::vec2(avail, avail * aspect)));
+        if self.video.has_frame() {
+            let w = ui.available_width().min(960.0);
+            let (rect, _) =
+                ui.allocate_exact_size(egui::vec2(w, w * self.aspect), egui::Sense::hover());
+            self.video.paint(ui, rect);
         } else if streaming {
             ui.label("Connecting… (waiting for the first keyframe)");
         }
@@ -392,7 +390,7 @@ impl App {
         egui::ScrollArea::vertical().show(ui, |ui| {
             for c in &self.clips.clone() {
                 if ui.button(format!("▶ {}", fmt_time(c.start))).clicked() {
-                    self.texture = None;
+                    self.video = crate::video_gl::GpuVideo::new();
                     self.playing = true;
                     let _ = self.tx.send(Cmd::PlayClip {
                         id: id.clone(),

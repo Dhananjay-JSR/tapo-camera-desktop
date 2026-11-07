@@ -6,6 +6,7 @@ mod audio_out;
 mod decode;
 mod store;
 mod stream;
+mod video_gl;
 mod worker;
 
 fn main() -> eframe::Result<()> {

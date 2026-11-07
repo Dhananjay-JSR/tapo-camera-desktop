@@ -61,7 +61,8 @@ fn pack(plane: &[u8], stride: usize, width: usize, height: usize) -> Vec<u8> {
     out
 }
 
-/// Scalar BT.601 I420→RGB8 (CPU fallback; the GPU shader path replaces this for live rendering).
+/// Scalar BT.601 I420→RGB8 — CPU reference/fallback (GPU shader does this in production).
+#[allow(dead_code)]
 pub fn yuv_to_rgb(f: &YuvFrame) -> Vec<u8> {
     let mut rgb = vec![0u8; f.w * f.h * 3];
     let cw = f.w / 2;
