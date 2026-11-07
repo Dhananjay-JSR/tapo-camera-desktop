@@ -108,6 +108,17 @@ flowchart TD
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Disclaimer
+
+This is an unofficial, community project. It is not affiliated with, authorized, or endorsed by
+TP-Link. "Tapo" and "TP-Link" are trademarks of their respective owners. It talks to the TP-Link
+cloud, which is undocumented and may change at any time, so the app can break without notice. Use
+it at your own risk.
+
+The `ACCESS_KEY`/`SECRET` constants in `tapo-core` are client values embedded in the official app
+(the same for every install), not user credentials. Your account token is never committed: it is
+stored only in your OS config directory and masked in logs.
+
 ## License
 
 MIT
