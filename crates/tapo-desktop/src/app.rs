@@ -51,6 +51,7 @@ pub struct App {
     video: crate::video_gl::GpuVideo,
     aspect: f32,
     playing: bool,
+    about_open: bool,
 }
 
 impl App {
@@ -86,6 +87,7 @@ impl App {
             video: crate::video_gl::GpuVideo::new(),
             aspect: 9.0 / 16.0,
             playing: false,
+            about_open: false,
         }
     }
 
@@ -243,6 +245,9 @@ impl App {
                     if ui.button("Log out").clicked() {
                         let _ = self.tx.send(Cmd::Logout);
                     }
+                    if ui.button("About").clicked() {
+                        self.about_open = true;
+                    }
                 });
             });
         });
@@ -273,6 +278,21 @@ impl App {
             Tab::Settings => self.settings_ui(ui),
             Tab::Log => self.log_ui(ui),
         });
+
+        egui::Window::new("About")
+            .collapsible(false)
+            .resizable(false)
+            .open(&mut self.about_open)
+            .show(ctx, |ui| {
+                ui.heading("Tapo Desktop");
+                ui.label(format!("App version: {}", env!("CARGO_PKG_VERSION")));
+                ui.label(format!("Core version: {}", tapo_core::VERSION));
+                ui.add_space(6.0);
+                ui.hyperlink_to(
+                    "github.com/Dhananjay-JSR/tapo-camera-desktop",
+                    "https://github.com/Dhananjay-JSR/tapo-camera-desktop",
+                );
+            });
     }
 
     fn live_ui(&mut self, ui: &mut egui::Ui) {
@@ -430,12 +450,8 @@ impl App {
     }
 
     fn settings_ui(&mut self, ui: &mut egui::Ui) {
-        ui.heading("About");
-        ui.label(format!("App version: {}", env!("CARGO_PKG_VERSION")));
-        ui.label(format!("Core version: {}", tapo_core::VERSION));
-        ui.add_space(12.0);
         let Some(id) = self.selected.clone() else {
-            ui.label("Select a camera for controls.");
+            ui.label("Select a camera.");
             return;
         };
         ui.heading("Camera controls");
