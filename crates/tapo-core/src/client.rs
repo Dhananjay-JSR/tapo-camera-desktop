@@ -38,11 +38,13 @@ impl Session {
     }
 }
 
+#[derive(Clone)]
 struct PendingMfa {
     email: String,
     process_id: String,
 }
 
+#[derive(Clone)]
 pub struct Cloud {
     http: Client,
     pub session: Session,
