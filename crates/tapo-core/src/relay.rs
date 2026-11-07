@@ -94,7 +94,7 @@ impl Cloud {
         ];
         let mut last = Error::Cloud("relay refused the stream".into());
         for (host, pq, origin) in candidates {
-            match RelaySocket::open(host, pq, &relay.token, origin) {
+            match RelaySocket::open(host, pq, &relay.token, origin, &self.session.term_id) {
                 Ok(sock) => return Ok(Mp2tParts::new(BufReader::new(sock))),
                 Err(e) => last = e,
             }

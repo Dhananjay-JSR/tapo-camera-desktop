@@ -12,6 +12,7 @@ use rustls::{ClientConfig, ClientConnection, RootCertStore, Stream};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
+use uuid::Uuid;
 
 fn tls_config() -> Arc<ClientConfig> {
     let mut roots = RootCertStore::empty();
@@ -43,6 +44,7 @@ impl RelaySocket {
         path_and_query: &str,
         token: &str,
         cdn_origin: Option<&str>,
+        client_uuid: &str,
     ) -> Result<Self> {
         let server = ServerName::try_from(host.to_string())
             .map_err(|_| Error::Cloud(format!("bad relay host {host}")))?;
@@ -58,8 +60,11 @@ impl RelaySocket {
              Keep-Relay: 3600\r\nAccept: */*\r\n\
              Content-Type: multipart/mixed;boundary=--client-stream-boundary--\r\n\
              Content-Length: 21474836470\r\n\
-             X-token: {token}\r\nX-Client-Model: pc\r\nX-Pull-Mode: 2\r\n\
-             X-Compete: 1\r\nX-Version: 2.0\r\n"
+             X-token: {token}\r\nX-Client-Model: pc\r\n\
+             X-Client-UUID: {client_uuid}\r\nX-Track-Id: {track}\r\n\
+             X-Redirect-Times: 0\r\nX-Pull-Mode: 2\r\nX-Compete: 1\r\n\
+             X-Version: 2.0\r\nX-Arrive-Latency: 95\r\n",
+            track = Uuid::new_v4()
         );
         if let Some(o) = cdn_origin {
             req.push_str(&format!("X-CDN-Origin: {o}\r\n"));

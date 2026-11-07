@@ -27,7 +27,8 @@ impl Cloud {
         )?;
         let (chost, _) = split_url(&relay.cdn_url);
         let (bhost, bpq) = split_url(&relay.business_url);
-        let mut sock = RelaySocket::open(chost, bpq, &relay.token, Some(bhost))?;
+        let mut sock =
+            RelaySocket::open(chost, bpq, &relay.token, Some(bhost), &self.session.term_id)?;
 
         let req = json!({
             "type": "request", "seq": 1, "method": "get",
