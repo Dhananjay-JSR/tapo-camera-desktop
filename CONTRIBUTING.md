@@ -4,10 +4,10 @@ Thanks for your interest in tapo-desktop.
 
 ## Project layout
 
-- **`crates/tapo-core`** — the protocol library (login/MFA, camera list, cloud relay, TS demux,
+- **`crates/tapo-core`**: the protocol library (login/MFA, camera list, cloud relay, TS demux,
   device commands, talk muxer, alerts). GUI-free and platform-agnostic. Put protocol/parsing logic
   here, with unit tests.
-- **`crates/tapo-desktop`** — the egui app (UI, decode, GPU render, audio I/O, worker thread).
+- **`crates/tapo-desktop`**: the egui app (UI, decode, GPU render, audio I/O, worker thread).
   Keep decoding/platform concerns here, not in the core.
 
 Keep the core decoupled from the UI: `tapo-core` must not depend on egui, a decoder, or a GUI.
