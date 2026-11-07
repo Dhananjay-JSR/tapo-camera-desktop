@@ -1,7 +1,8 @@
 //! Cloud relay: request a session, open the stream, parse the camera's multipart MPEG-TS.
 
-use crate::client::{Cloud, APP_NAME, APP_VER};
+use crate::client::{Cloud, APP_VER};
 use crate::error::{Error, Result};
+use crate::relay_socket::RelaySocket;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read};
 use uuid::Uuid;
@@ -58,44 +59,26 @@ impl Cloud {
         })
     }
 
-    /// Open a live/playback stream and return a reader over its multipart body.
-    /// The direct relay host often refuses (406); the CDN host works, so try in order.
-    pub fn open_stream(&self, device_id: &str, custom: Value) -> Result<Mp2tParts<impl Read>> {
+    /// Open a live stream and return a reader over its multipart MPEG-TS body.
+    /// The direct relay host works for live; if it refuses, fall back to the CDN host.
+    pub fn open_stream(&self, device_id: &str, custom: Value) -> Result<Mp2tParts<RelaySocket>> {
         let relay = self.relay_request(device_id, StreamType::Live, custom, false)?;
-        let biz = url_path_query(&relay.business_url);
-        for (base, origin) in [
-            (relay.business_url.clone(), None),
-            (format!("{}{}", relay.cdn_url, biz), cdn_host(&relay.business_url)),
-            (relay.relay_url.clone(), None),
-        ] {
-            let mut req = self.http().post(format!("{base}&retryTime=0"))
-                .header("User-Agent", format!("Client={APP_NAME} Android {APP_VER}/1.3"))
-                .header("Keep-Relay", "3600").header("Accept", "*/*")
-                .header("Content-Type", "multipart/mixed;boundary=--client-stream-boundary--")
-                .header("Content-Length", "21474836470") // app's "endless upload" marker
-                .header("X-token", &relay.token)
-                .header("X-Client-Model", "pc").header("X-Client-UUID", &self.session.term_id)
-                .header("X-Track-Id", Uuid::new_v4().to_string())
-                .header("X-Redirect-Times", "0").header("X-Pull-Mode", "2")
-                .header("X-Compete", "1").header("X-Version", "2.0")
-                .header("X-Arrive-Latency", "95");
-            if let Some(o) = &origin {
-                req = req.header("X-CDN-Origin", o.clone());
-            }
-            let resp = req.send()?;
-            if resp.status().is_success() {
-                return Ok(Mp2tParts::new(BufReader::new(resp)));
+        let (bhost, bpq) = split_url(&relay.business_url);
+        let (chost, _) = split_url(&relay.cdn_url);
+        let candidates: [(&str, &str, Option<&str>); 3] = [
+            (bhost, bpq, None),
+            (chost, bpq, Some(bhost)),
+            (bhost, bpq, None),
+        ];
+        let mut last = Error::Cloud("relay refused the stream".into());
+        for (host, pq, origin) in candidates {
+            match RelaySocket::open(host, pq, &relay.token, origin) {
+                Ok(sock) => return Ok(Mp2tParts::new(BufReader::new(sock))),
+                Err(e) => last = e,
             }
         }
-        Err(Error::Cloud("relay refused the stream".into()))
+        Err(last)
     }
-}
-
-fn url_path_query(url: &str) -> String {
-    url.split_once("://").and_then(|(_, rest)| rest.split_once('/')).map(|(_, pq)| format!("/{pq}")).unwrap_or_default()
-}
-fn cdn_host(business_url: &str) -> Option<String> {
-    business_url.split_once("://").and_then(|(_, r)| r.split('/').next()).map(str::to_string)
 }
 
 /// Streams the `----device-stream-boundary--` parts, yielding only `video/mp2t` payloads.
@@ -104,7 +87,7 @@ pub struct Mp2tParts<R: Read> {
 }
 
 impl<R: Read> Mp2tParts<R> {
-    fn new(reader: BufReader<R>) -> Self {
+    pub(crate) fn new(reader: BufReader<R>) -> Self {
         Mp2tParts { reader }
     }
 
@@ -171,7 +154,16 @@ mod tests {
 
     #[test]
     fn url_helpers() {
-        assert_eq!(url_path_query("https://host.example/relayservice?a=1"), "/relayservice?a=1");
-        assert_eq!(cdn_host("https://host.example/x").as_deref(), Some("host.example"));
+        assert_eq!(split_url("https://host.example/relayservice?a=1"), ("host.example", "/relayservice?a=1"));
+        assert_eq!(split_url("https://h/x"), ("h", "/x"));
+    }
+}
+
+/// Split an `https://host/path?query` URL into `(host, "/path?query")`.
+pub(crate) fn split_url(url: &str) -> (&str, &str) {
+    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    match rest.find('/') {
+        Some(i) => (&rest[..i], &rest[i..]),
+        None => (rest, "/"),
     }
 }

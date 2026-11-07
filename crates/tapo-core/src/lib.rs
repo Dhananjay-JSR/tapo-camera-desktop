@@ -6,8 +6,15 @@ mod error;
 mod sign;
 pub mod device;
 pub mod relay;
+mod relay_socket;
+pub mod audio;
+pub mod alerts;
+pub mod playback;
 
 pub use client::{Cloud, Session, APP_NAME, APP_VER};
 pub use device::Camera;
 pub use relay::StreamType;
+pub use audio::{AudioDemux, Codec};
+pub use alerts::Alert;
+pub use playback::Clip;
 pub use error::{Error, Result};
