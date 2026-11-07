@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tapo_core::relay::Mp2tParts;
-use tapo_core::AudioDemux;
+use tapo_core::TsDemux;
 
 fn ffplay(args: &[&str]) -> std::io::Result<Child> {
     Command::new("ffplay")
@@ -38,7 +38,7 @@ pub fn play<R: Read>(mut parts: Mp2tParts<R>, title: &str, audio_rate: u32, stop
         }
     };
     let mut vin = video.stdin.take().unwrap();
-    let mut demux = AudioDemux::new();
+    let mut demux = TsDemux::new();
     let mut audio: Option<Child> = None;
     let rate = audio_rate.to_string();
 
@@ -48,10 +48,10 @@ pub fn play<R: Read>(mut parts: Mp2tParts<R>, title: &str, audio_rate: u32, stop
                 if vin.write_all(&chunk).is_err() {
                     break; // window closed
                 }
-                let pcm = demux.feed(&chunk);
+                let pcm = demux.feed(&chunk).audio;
                 if !pcm.is_empty() {
                     if audio.is_none() {
-                        if let Some(codec) = demux.codec {
+                        if let Some(codec) = demux.audio_codec {
                             audio = ffplay(&[
                                 "-nodisp",
                                 "-f",

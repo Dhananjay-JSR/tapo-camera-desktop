@@ -128,16 +128,16 @@ fn audio_packet(payload: &[u8], pusi: bool, cc: &mut u8) -> [u8; 188] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::{AudioDemux, Codec};
+    use crate::tsdemux::{AudioCodec, TsDemux};
 
     #[test]
     fn roundtrips_through_demux() {
         let samples: Vec<u8> = (0..1024u16).map(|i| (i & 0xff) as u8).collect();
         let ts = TsMux::new().frame(&samples);
         assert_eq!(ts.len() % 188, 0);
-        let mut d = AudioDemux::new();
-        let got = d.feed(&ts);
-        assert_eq!(d.codec, Some(Codec::Mulaw));
+        let mut d = TsDemux::new();
+        let got = d.feed(&ts).audio;
+        assert_eq!(d.audio_codec, Some(AudioCodec::Mulaw));
         assert_eq!(got, samples, "muxed audio must survive a demux round-trip");
     }
 }
