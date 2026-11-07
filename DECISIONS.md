@@ -26,3 +26,17 @@
 ## D5: TS demux lives in tapo-core, codecs in tapo-desktop  (2026-11-08, decided by: assumed, status: accepted)
 > To keep the core library codec- and GUI-free, the core only splits TS into H.264 access units and G.711 bytes; decoding and playback live in the app.
 - Code: crates/tapo-core/src/tsdemux.rs
+
+## D6: GPU does YUV→RGB, not the CPU  (2026-11-08, decided by: user, status: accepted)
+> In the desktop renderer, facing per-frame CPU color-convert + upload cost, we chose a glow fragment shader (upload I420 planes, convert on draw) over CPU conversion, to keep the CPU free for decode and make scaling/tiling cheap, accepting ~150 lines of GL that need on-device visual verification.
+- Chosen: GPU shader (src/video_gl.rs); CPU yuv_to_rgb kept as reference/fallback.
+- Hypothesis: eframe's glow backend is available on all target desktops so the paint callback runs.
+- Falsified if: a platform uses a non-glow backend (callback no-ops → black video).
+- Open concern: GL render path is compile-verified only; not yet seen on a display.
+
+## D7: Hardware decode behind a trait + feature, openh264 as the floor  (2026-11-08, decided by: user, status: accepted)
+> Facing high software-decode CPU for multi-camera, we chose pluggable VideoDecoder backends with native hardware decode (VideoToolbox first) behind `hw-videotoolbox`, falling back to openh264, over requiring ffmpeg (hard self-contained requirement), accepting per-OS unsafe FFI completed and tested on-device.
+- Chosen: trait in src/decode.rs; VideoToolbox integration point in src/decode_vt.rs (scaffold).
+- Hypothesis: VideoToolbox decodes the cameras' H.264 and NV12→I420 maps cleanly to our YuvFrame.
+- Falsified if: VT returns errors for the stream's SPS/PPS, or colors/planes are wrong after conversion.
+- Open concern: FFI not yet written/verified; default build uses openh264.

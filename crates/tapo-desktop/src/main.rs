@@ -4,6 +4,8 @@ mod app;
 mod audio_in;
 mod audio_out;
 mod decode;
+#[cfg(all(target_os = "macos", feature = "hw-videotoolbox"))]
+mod decode_vt;
 mod store;
 mod stream;
 mod video_gl;

@@ -35,6 +35,15 @@ plays via the OS. You only need a Rust toolchain with a C compiler (for openh264
 cargo run --release -p tapo-desktop
 ```
 
+## Performance
+
+Video is decoded in software (openh264) and converted to RGB **on the GPU** (a glow shader), so the
+CPU stays free. For lower CPU on macOS there is an experimental hardware-decode path:
+
+```sh
+cargo run --release -p tapo-desktop --features hw-videotoolbox   # falls back to openh264
+```
+
 ## How it works
 
 The protocol was built for the TP-Link cloud.

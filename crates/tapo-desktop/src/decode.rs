@@ -23,6 +23,10 @@ pub trait VideoDecoder: Send {
 /// Pick the best available decoder. Hardware backends (feature-gated) go here first; openh264 is
 /// the always-present fallback so the app works on every platform with no external dependency.
 pub fn new_decoder() -> Option<Box<dyn VideoDecoder>> {
+    #[cfg(all(target_os = "macos", feature = "hw-videotoolbox"))]
+    if let Some(hw) = crate::decode_vt::VideoToolbox::new() {
+        return Some(Box::new(hw));
+    }
     Some(Box::new(Openh264Dec::new()?))
 }
 
