@@ -52,12 +52,27 @@ impl App {
         let ctx = cc.egui_ctx.clone();
         let tx = worker::spawn(store::load(), evt_tx, move || ctx.request_repaint());
         App {
-            tx, rx, auth: Auth::Out,
-            email: String::new(), password: String::new(), mfa_code: String::new(), status: String::new(),
-            cams: Vec::new(), selected: None, live: HashMap::new(), presets: HashMap::new(),
-            tab: Tab::Live, days: Vec::new(), clips: Vec::new(), sel_day: None,
-            alerts: Vec::new(), notif_on: false, last_poll: Instant::now(), poll_since: now_ms(),
-            talk_on: false, mic: None,
+            tx,
+            rx,
+            auth: Auth::Out,
+            email: String::new(),
+            password: String::new(),
+            mfa_code: String::new(),
+            status: String::new(),
+            cams: Vec::new(),
+            selected: None,
+            live: HashMap::new(),
+            presets: HashMap::new(),
+            tab: Tab::Live,
+            days: Vec::new(),
+            clips: Vec::new(),
+            sel_day: None,
+            alerts: Vec::new(),
+            notif_on: false,
+            last_poll: Instant::now(),
+            poll_since: now_ms(),
+            talk_on: false,
+            mic: None,
         }
     }
 
@@ -79,9 +94,19 @@ impl App {
                     }
                     self.cams = c;
                 }
-                Evt::Presets(id, p) => { self.presets.insert(id, p); }
-                Evt::Days(id, d) => if self.selected.as_deref() == Some(&id) { self.days = d; },
-                Evt::Clips(id, c) => if self.selected.as_deref() == Some(&id) { self.clips = c; },
+                Evt::Presets(id, p) => {
+                    self.presets.insert(id, p);
+                }
+                Evt::Days(id, d) => {
+                    if self.selected.as_deref() == Some(&id) {
+                        self.days = d;
+                    }
+                }
+                Evt::Clips(id, c) => {
+                    if self.selected.as_deref() == Some(&id) {
+                        self.clips = c;
+                    }
+                }
                 Evt::Alerts(a) => {
                     if let Some(last) = a.last() {
                         self.poll_since = last.time_ms + 1;
@@ -99,7 +124,10 @@ impl App {
 }
 
 fn now_ms() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
 }
 
 impl eframe::App for App {
@@ -129,16 +157,26 @@ impl App {
                 ui.add_space(16.0);
                 if self.auth == Auth::Mfa {
                     ui.label(&self.status);
-                    ui.add(egui::TextEdit::singleline(&mut self.mfa_code).hint_text("Verification code"));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.mfa_code)
+                            .hint_text("Verification code"),
+                    );
                     if ui.button("Verify").clicked() && !self.mfa_code.is_empty() {
                         let _ = self.tx.send(Cmd::Mfa(self.mfa_code.clone()));
                     }
                 } else {
                     ui.add(egui::TextEdit::singleline(&mut self.email).hint_text("TP-Link email"));
-                    ui.add(egui::TextEdit::singleline(&mut self.password).password(true).hint_text("Password"));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.password)
+                            .password(true)
+                            .hint_text("Password"),
+                    );
                     if ui.button("Log in").clicked() && !self.email.is_empty() {
                         self.status = "Signing in…".into();
-                        let _ = self.tx.send(Cmd::Login { email: self.email.clone(), password: self.password.clone() });
+                        let _ = self.tx.send(Cmd::Login {
+                            email: self.email.clone(),
+                            password: self.password.clone(),
+                        });
                     }
                     if !self.status.is_empty() {
                         ui.colored_label(egui::Color32::LIGHT_RED, &self.status);
@@ -161,16 +199,24 @@ impl App {
                 }
             });
         });
-        egui::SidePanel::left("cams").resizable(false).show(ctx, |ui| {
-            ui.heading("Cameras");
-            for c in &self.cams.clone() {
-                let dot = if c.online { "🟢" } else { "⚪" };
-                if ui.selectable_label(self.selected.as_deref() == Some(&c.id), format!("{dot} {}", c.name)).clicked() {
-                    self.selected = Some(c.id.clone());
-                    let _ = self.tx.send(Cmd::Presets(c.id.clone()));
+        egui::SidePanel::left("cams")
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.heading("Cameras");
+                for c in &self.cams.clone() {
+                    let dot = if c.online { "🟢" } else { "⚪" };
+                    if ui
+                        .selectable_label(
+                            self.selected.as_deref() == Some(&c.id),
+                            format!("{dot} {}", c.name),
+                        )
+                        .clicked()
+                    {
+                        self.selected = Some(c.id.clone());
+                        let _ = self.tx.send(Cmd::Presets(c.id.clone()));
+                    }
                 }
-            }
-        });
+            });
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.label(&self.status);
         });
@@ -182,8 +228,16 @@ impl App {
     }
 
     fn live_ui(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.selected.clone() else { ui.label("Select a camera."); return; };
-        let name = self.cams.iter().find(|c| c.id == id).map(|c| c.name.clone()).unwrap_or_default();
+        let Some(id) = self.selected.clone() else {
+            ui.label("Select a camera.");
+            return;
+        };
+        let name = self
+            .cams
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| c.name.clone())
+            .unwrap_or_default();
         ui.heading(&name);
         let streaming = *self.live.get(&id).unwrap_or(&false);
         ui.horizontal(|ui| {
@@ -199,7 +253,10 @@ impl App {
         });
         ui.label("Video opens in a separate ffplay window.");
         ui.add_space(8.0);
-        if ui.checkbox(&mut self.talk_on, "🎤 Talk (hold the conversation open)").changed() {
+        if ui
+            .checkbox(&mut self.talk_on, "🎤 Talk (hold the conversation open)")
+            .changed()
+        {
             if self.talk_on {
                 let _ = self.tx.send(Cmd::StartTalk(id.clone()));
                 self.mic = crate::audio_in::start(self.tx.clone());
@@ -218,15 +275,39 @@ impl App {
         ui.label("Pan / tilt");
         ui.horizontal(|ui| {
             ui.add_space(30.0);
-            if ui.button("⬆").clicked() { let _ = self.tx.send(Cmd::Ptz { id: id.clone(), x: 0, y: 20 }); }
+            if ui.button("⬆").clicked() {
+                let _ = self.tx.send(Cmd::Ptz {
+                    id: id.clone(),
+                    x: 0,
+                    y: 20,
+                });
+            }
         });
         ui.horizontal(|ui| {
-            if ui.button("⬅").clicked() { let _ = self.tx.send(Cmd::Ptz { id: id.clone(), x: -20, y: 0 }); }
-            if ui.button("➡").clicked() { let _ = self.tx.send(Cmd::Ptz { id: id.clone(), x: 20, y: 0 }); }
+            if ui.button("⬅").clicked() {
+                let _ = self.tx.send(Cmd::Ptz {
+                    id: id.clone(),
+                    x: -20,
+                    y: 0,
+                });
+            }
+            if ui.button("➡").clicked() {
+                let _ = self.tx.send(Cmd::Ptz {
+                    id: id.clone(),
+                    x: 20,
+                    y: 0,
+                });
+            }
         });
         ui.horizontal(|ui| {
             ui.add_space(30.0);
-            if ui.button("⬇").clicked() { let _ = self.tx.send(Cmd::Ptz { id: id.clone(), x: 0, y: -20 }); }
+            if ui.button("⬇").clicked() {
+                let _ = self.tx.send(Cmd::Ptz {
+                    id: id.clone(),
+                    x: 0,
+                    y: -20,
+                });
+            }
         });
 
         if let Some(presets) = self.presets.get(&id).cloned() {
@@ -235,7 +316,10 @@ impl App {
             ui.horizontal_wrapped(|ui| {
                 for (pid, pname) in presets {
                     if ui.button(pname).clicked() {
-                        let _ = self.tx.send(Cmd::Preset { id: id.clone(), preset: pid });
+                        let _ = self.tx.send(Cmd::Preset {
+                            id: id.clone(),
+                            preset: pid,
+                        });
                     }
                 }
             });
@@ -243,53 +327,89 @@ impl App {
     }
 
     fn playback_ui(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.selected.clone() else { ui.label("Select a camera."); return; };
+        let Some(id) = self.selected.clone() else {
+            ui.label("Select a camera.");
+            return;
+        };
         if ui.button("Load recording days").clicked() {
             let _ = self.tx.send(Cmd::Days(id.clone()));
         }
         ui.horizontal_wrapped(|ui| {
             for d in &self.days.clone() {
-                if ui.selectable_label(self.sel_day.as_deref() == Some(d), d).clicked() {
+                if ui
+                    .selectable_label(self.sel_day.as_deref() == Some(d), d)
+                    .clicked()
+                {
                     self.sel_day = Some(d.clone());
-                    let _ = self.tx.send(Cmd::Clips { id: id.clone(), date: d.clone() });
+                    let _ = self.tx.send(Cmd::Clips {
+                        id: id.clone(),
+                        date: d.clone(),
+                    });
                 }
             }
         });
         egui::ScrollArea::vertical().show(ui, |ui| {
             for c in &self.clips.clone() {
                 if ui.button(format!("▶ {}", fmt_time(c.start))).clicked() {
-                    let _ = self.tx.send(Cmd::PlayClip { id: id.clone(), clip: c.clone() });
+                    let _ = self.tx.send(Cmd::PlayClip {
+                        id: id.clone(),
+                        clip: c.clone(),
+                    });
                 }
             }
         });
     }
 
     fn settings_ui(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.selected.clone() else { ui.label("Select a camera."); return; };
+        let Some(id) = self.selected.clone() else {
+            ui.label("Select a camera.");
+            return;
+        };
         ui.heading("Camera controls");
         ui.horizontal(|ui| {
-            if ui.button("LED on").clicked() { self.toggle(&id, Toggle::Led, true); }
-            if ui.button("LED off").clicked() { self.toggle(&id, Toggle::Led, false); }
+            if ui.button("LED on").clicked() {
+                self.toggle(&id, Toggle::Led, true);
+            }
+            if ui.button("LED off").clicked() {
+                self.toggle(&id, Toggle::Led, false);
+            }
         });
         ui.horizontal(|ui| {
-            if ui.button("Privacy on").clicked() { self.toggle(&id, Toggle::Privacy, true); }
-            if ui.button("Privacy off").clicked() { self.toggle(&id, Toggle::Privacy, false); }
+            if ui.button("Privacy on").clicked() {
+                self.toggle(&id, Toggle::Privacy, true);
+            }
+            if ui.button("Privacy off").clicked() {
+                self.toggle(&id, Toggle::Privacy, false);
+            }
         });
         ui.horizontal(|ui| {
-            if ui.button("Arm alarm").clicked() { self.toggle(&id, Toggle::Alarm, true); }
-            if ui.button("Disarm alarm").clicked() { self.toggle(&id, Toggle::Alarm, false); }
+            if ui.button("Arm alarm").clicked() {
+                self.toggle(&id, Toggle::Alarm, true);
+            }
+            if ui.button("Disarm alarm").clicked() {
+                self.toggle(&id, Toggle::Alarm, false);
+            }
         });
         ui.add_space(16.0);
         ui.heading("Recent alerts");
         egui::ScrollArea::vertical().show(ui, |ui| {
             for a in &self.alerts {
-                ui.label(format!("{} · {} · {}", fmt_time(a.time_ms / 1000), a.device, a.text));
+                ui.label(format!(
+                    "{} · {} · {}",
+                    fmt_time(a.time_ms / 1000),
+                    a.device,
+                    a.text
+                ));
             }
         });
     }
 
     fn toggle(&self, id: &str, what: Toggle, on: bool) {
-        let _ = self.tx.send(Cmd::Toggle { id: id.to_string(), what, on });
+        let _ = self.tx.send(Cmd::Toggle {
+            id: id.to_string(),
+            what,
+            on,
+        });
     }
 }
 

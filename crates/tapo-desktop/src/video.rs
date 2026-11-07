@@ -20,7 +20,17 @@ fn ffplay(args: &[&str]) -> std::io::Result<Child> {
 /// `audio_rate` is the camera mic rate (Hz); audio starts once the first G.711 bytes arrive.
 pub fn play<R: Read>(mut parts: Mp2tParts<R>, title: &str, audio_rate: u32, stop: Arc<AtomicBool>) {
     // Small probe: ffmpeg can't identify Tapo's G.711 track and would otherwise buffer minutes first.
-    let mut video = match ffplay(&["-probesize", "100000", "-analyzeduration", "500000", "-an", "-window_title", title, "-i", "-"]) {
+    let mut video = match ffplay(&[
+        "-probesize",
+        "100000",
+        "-analyzeduration",
+        "500000",
+        "-an",
+        "-window_title",
+        title,
+        "-i",
+        "-",
+    ]) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("ffplay not found ({e}); install ffmpeg");
@@ -42,7 +52,18 @@ pub fn play<R: Read>(mut parts: Mp2tParts<R>, title: &str, audio_rate: u32, stop
                 if !pcm.is_empty() {
                     if audio.is_none() {
                         if let Some(codec) = demux.codec {
-                            audio = ffplay(&["-nodisp", "-f", codec.ffmpeg(), "-sample_rate", &rate, "-ch_layout", "mono", "-i", "-"]).ok();
+                            audio = ffplay(&[
+                                "-nodisp",
+                                "-f",
+                                codec.ffmpeg(),
+                                "-sample_rate",
+                                &rate,
+                                "-ch_layout",
+                                "mono",
+                                "-i",
+                                "-",
+                            ])
+                            .ok();
                         }
                     }
                     if let Some(a) = &mut audio {

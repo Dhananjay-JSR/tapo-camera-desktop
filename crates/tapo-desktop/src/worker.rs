@@ -48,7 +48,11 @@ pub enum Evt {
     Error(String),
 }
 
-pub fn spawn(session: Session, evt: Sender<Evt>, repaint: impl Fn() + Send + 'static) -> Sender<Cmd> {
+pub fn spawn(
+    session: Session,
+    evt: Sender<Evt>,
+    repaint: impl Fn() + Send + 'static,
+) -> Sender<Cmd> {
     let (tx, rx): (Sender<Cmd>, Receiver<Cmd>) = std::sync::mpsc::channel();
     thread::spawn(move || {
         let mut cloud = Cloud::new(session).expect("tls client");
@@ -91,9 +95,17 @@ pub fn spawn(session: Session, evt: Sender<Evt>, repaint: impl Fn() + Send + 'st
                     let evt = evt.clone();
                     thread::spawn(move || {
                         let today = 20260101; // shortcut: wide range; narrow once a date picker exists.
-                        match c.recording_days(&id, "20200101", &format!("{}", today + 991231 - 10101)) {
-                            Ok(d) => { let _ = evt.send(Evt::Days(id, d)); }
-                            Err(e) => { let _ = evt.send(Evt::Error(e.to_string())); }
+                        match c.recording_days(
+                            &id,
+                            "20200101",
+                            &format!("{}", today + 991231 - 10101),
+                        ) {
+                            Ok(d) => {
+                                let _ = evt.send(Evt::Days(id, d));
+                            }
+                            Err(e) => {
+                                let _ = evt.send(Evt::Error(e.to_string()));
+                            }
                         }
                     });
                 }
@@ -101,20 +113,30 @@ pub fn spawn(session: Session, evt: Sender<Evt>, repaint: impl Fn() + Send + 'st
                     let c = cloud.clone();
                     let evt = evt.clone();
                     thread::spawn(move || match c.clips(&id, &date) {
-                        Ok(cl) => { let _ = evt.send(Evt::Clips(id, cl)); }
-                        Err(e) => { let _ = evt.send(Evt::Error(e.to_string())); }
+                        Ok(cl) => {
+                            let _ = evt.send(Evt::Clips(id, cl));
+                        }
+                        Err(e) => {
+                            let _ = evt.send(Evt::Error(e.to_string()));
+                        }
                     });
                 }
                 Cmd::Alerts(since) => {
                     let c = cloud.clone();
                     let evt = evt.clone();
                     thread::spawn(move || match c.alerts(since, 0) {
-                        Ok(a) => { let _ = evt.send(Evt::Alerts(a)); }
-                        Err(e) => { let _ = evt.send(Evt::Error(e.to_string())); }
+                        Ok(a) => {
+                            let _ = evt.send(Evt::Alerts(a));
+                        }
+                        Err(e) => {
+                            let _ = evt.send(Evt::Error(e.to_string()));
+                        }
                     });
                 }
                 Cmd::Ptz { id, x, y } => quick(&cloud, &evt, move |c| c.move_motor(&id, x, y)),
-                Cmd::Preset { id, preset } => quick(&cloud, &evt, move |c| c.goto_preset(&id, &preset)),
+                Cmd::Preset { id, preset } => {
+                    quick(&cloud, &evt, move |c| c.goto_preset(&id, &preset))
+                }
                 Cmd::Toggle { id, what, on } => quick(&cloud, &evt, move |c| match what {
                     Toggle::Led => c.set_led(&id, on),
                     Toggle::Privacy => c.set_privacy(&id, on),
@@ -147,13 +169,23 @@ pub fn spawn(session: Session, evt: Sender<Evt>, repaint: impl Fn() + Send + 'st
                     thread::spawn(move || {
                         let rate = c.mic_rate(&id).unwrap_or(16000);
                         match c.open_playback(&id, &clip) {
-                            Ok(parts) => video::play(parts, &format!("{id} playback"), rate, Arc::new(AtomicBool::new(false))),
-                            Err(e) => { let _ = evt.send(Evt::Error(e.to_string())); }
+                            Ok(parts) => video::play(
+                                parts,
+                                &format!("{id} playback"),
+                                rate,
+                                Arc::new(AtomicBool::new(false)),
+                            ),
+                            Err(e) => {
+                                let _ = evt.send(Evt::Error(e.to_string()));
+                            }
                         }
                     });
                 }
                 Cmd::StartTalk(id) => match cloud.start_talk(&id) {
-                    Ok(t) => { talk = Some(t); send(Evt::Status("Talk started".into())); }
+                    Ok(t) => {
+                        talk = Some(t);
+                        send(Evt::Status("Talk started".into()));
+                    }
                     Err(e) => send(Evt::Error(e.to_string())),
                 },
                 Cmd::Mic(pcm) => {
@@ -171,7 +203,11 @@ pub fn spawn(session: Session, evt: Sender<Evt>, repaint: impl Fn() + Send + 'st
 }
 
 /// Run a quick camera command on a worker clone so the UI never blocks.
-fn quick(cloud: &Cloud, evt: &Sender<Evt>, f: impl FnOnce(&Cloud) -> tapo_core::Result<()> + Send + 'static) {
+fn quick(
+    cloud: &Cloud,
+    evt: &Sender<Evt>,
+    f: impl FnOnce(&Cloud) -> tapo_core::Result<()> + Send + 'static,
+) {
     let c = cloud.clone();
     let evt = evt.clone();
     thread::spawn(move || {

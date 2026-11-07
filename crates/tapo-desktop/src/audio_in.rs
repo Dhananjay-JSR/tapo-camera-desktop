@@ -54,7 +54,8 @@ pub fn start(tx: Sender<Cmd>) -> Option<Mic> {
                     r.push_mono(frame[0]);
                 }
             },
-            err, None,
+            err,
+            None,
         ),
         cpal::SampleFormat::I16 => device.build_input_stream(
             &config.into(),
@@ -64,7 +65,8 @@ pub fn start(tx: Sender<Cmd>) -> Option<Mic> {
                     r.push_mono(frame[0] as f32 / 32768.0);
                 }
             },
-            err, None,
+            err,
+            None,
         ),
         _ => return None, // uncommon formats: skip rather than mis-decode
     }

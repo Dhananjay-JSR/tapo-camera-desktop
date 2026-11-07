@@ -10,7 +10,10 @@ pub enum Error {
     /// A camera `passthrough` command returned a non-zero `error_code`.
     Camera(i64),
     /// Login needs the emailed MFA code; the caller must supply it.
-    MfaRequired { process_id: String, email: String },
+    MfaRequired {
+        process_id: String,
+        email: String,
+    },
     Auth(String),
 }
 
@@ -30,8 +33,20 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl From<reqwest::Error> for Error { fn from(e: reqwest::Error) -> Self { Error::Http(e) } }
-impl From<std::io::Error> for Error { fn from(e: std::io::Error) -> Self { Error::Io(e) } }
-impl From<serde_json::Error> for Error { fn from(e: serde_json::Error) -> Self { Error::Json(e) } }
+impl From<reqwest::Error> for Error {
+    fn from(e: reqwest::Error) -> Self {
+        Error::Http(e)
+    }
+}
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Io(e)
+    }
+}
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::Json(e)
+    }
+}
 
 pub type Result<T> = std::result::Result<T, Error>;

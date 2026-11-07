@@ -41,6 +41,9 @@ mod tests {
             "1d16e4dc-8671-4288-8702-8d82838b7586",
         );
         assert_eq!(md5, "F6ZG767UdbygPCZbHUvUFg==");
-        assert!(auth.ends_with("Signature=b691465de17f5a015a8e46fbbd5b543bc5bfa9c2"), "{auth}");
+        assert!(
+            auth.ends_with("Signature=b691465de17f5a015a8e46fbbd5b543bc5bfa9c2"),
+            "{auth}"
+        );
     }
 }

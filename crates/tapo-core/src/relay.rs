@@ -24,7 +24,13 @@ pub struct RelayInfo {
 
 impl Cloud {
     /// Ask the cloud for a relay session for `device_id`.
-    pub fn relay_request(&self, device_id: &str, stream: StreamType, custom: Value, channel: bool) -> Result<RelayInfo> {
+    pub fn relay_request(
+        &self,
+        device_id: &str,
+        stream: StreamType,
+        custom: Value,
+        channel: bool,
+    ) -> Result<RelayInfo> {
         let mut params = json!({
             "cloudType": 2, "customParams": custom.to_string(), "dataTimeoutCount": 0,
             "deviceId": device_id, "deviceType": "SMART.IPCAMERA", "playerId": self.session.term_id,
@@ -36,23 +42,39 @@ impl Cloud {
         }
         let body = serde_json::to_vec(&params)?;
         // X-Request-Signature is just a random 10-char request id, not a signature.
-        let sig: String = Uuid::new_v4().simple().to_string().chars().take(10).collect();
+        let sig: String = Uuid::new_v4()
+            .simple()
+            .to_string()
+            .chars()
+            .take(10)
+            .collect();
         let url = format!("{}/v2/relay/request", self.cipc()?);
-        let r: Value = self.http().post(url)
+        let r: Value = self
+            .http()
+            .post(url)
             .header("X-Request-Signature", sig)
             .header("Authorization", self.token()?)
             .header("X-Client-Id", &self.session.term_id)
-            .header("X-Source", "tapo-app").header("X-Brand", "TPLINK")
+            .header("X-Source", "tapo-app")
+            .header("X-Brand", "TPLINK")
             .header("X-Ca-Type", "cloud-self")
             .header("Content-Type", "application/json; charset=UTF-8")
-            .header("User-Agent", format!("Tapo_APP/pc/{APP_VER}_Android/Android 14"))
-            .body(body).send()?.json()?;
+            .header(
+                "User-Agent",
+                format!("Tapo_APP/pc/{APP_VER}_Android/Android 14"),
+            )
+            .body(body)
+            .send()?
+            .json()?;
         if r["errorCode"].to_string() != "0" {
             return Err(Error::Cloud(format!("relay/request {}", r["errorCode"])));
         }
         let res = &r["result"];
         Ok(RelayInfo {
-            business_url: res["relayBusinessUrl"].as_str().unwrap_or_default().to_string(),
+            business_url: res["relayBusinessUrl"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
             relay_url: res["relayUrl"].as_str().unwrap_or_default().to_string(),
             cdn_url: res["cdnUrl"].as_str().unwrap_or_default().to_string(),
             token: res["relayToken"].as_str().unwrap_or_default().to_string(),
@@ -113,7 +135,10 @@ impl<R: Read> Mp2tParts<R> {
                 if h.is_empty() {
                     break;
                 }
-                let (k, v) = h.split_once(':').map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string())).unwrap_or_default();
+                let (k, v) = h
+                    .split_once(':')
+                    .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string()))
+                    .unwrap_or_default();
                 match k.as_str() {
                     "content-type" => content_type = v,
                     "content-length" => len = v.parse().unwrap_or(0),
@@ -154,7 +179,10 @@ mod tests {
 
     #[test]
     fn url_helpers() {
-        assert_eq!(split_url("https://host.example/relayservice?a=1"), ("host.example", "/relayservice?a=1"));
+        assert_eq!(
+            split_url("https://host.example/relayservice?a=1"),
+            ("host.example", "/relayservice?a=1")
+        );
         assert_eq!(split_url("https://h/x"), ("h", "/x"));
     }
 }

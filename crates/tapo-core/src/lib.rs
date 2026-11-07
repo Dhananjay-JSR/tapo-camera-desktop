@@ -1,23 +1,23 @@
 //! TP-Link Tapo cloud protocol.
 //! GUI-free and platform-agnostic so it can back a desktop app, CLI, or service.
 
+pub mod alerts;
+pub mod audio;
 pub mod client;
-mod error;
-mod sign;
 pub mod device;
+mod error;
+pub mod playback;
 pub mod relay;
 mod relay_socket;
-pub mod ts_mux;
+mod sign;
 pub mod talk;
-pub mod audio;
-pub mod alerts;
-pub mod playback;
+pub mod ts_mux;
 
+pub use alerts::Alert;
+pub use audio::{AudioDemux, Codec};
 pub use client::{Cloud, Session, APP_NAME, APP_VER};
 pub use device::Camera;
-pub use relay::StreamType;
-pub use audio::{AudioDemux, Codec};
-pub use alerts::Alert;
-pub use playback::Clip;
-pub use talk::TalkSession;
 pub use error::{Error, Result};
+pub use playback::Clip;
+pub use relay::StreamType;
+pub use talk::TalkSession;

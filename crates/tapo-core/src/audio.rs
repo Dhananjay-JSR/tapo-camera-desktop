@@ -68,7 +68,11 @@ impl AudioDemux {
                         let es_len = (((sec[j + 3] & 0xf) as usize) << 8) | sec[j + 4] as usize;
                         if stype == 0x90 || stype == 0x91 {
                             self.audio_pid = Some(epid);
-                            self.codec = Some(if stype == 0x90 { Codec::Alaw } else { Codec::Mulaw });
+                            self.codec = Some(if stype == 0x90 {
+                                Codec::Alaw
+                            } else {
+                                Codec::Mulaw
+                            });
                         }
                         j += 5 + es_len;
                     }

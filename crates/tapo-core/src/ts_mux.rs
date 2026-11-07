@@ -58,7 +58,12 @@ fn encode_pts(pts: u64) -> [u8; 5] {
 fn pat() -> Vec<u8> {
     // table_id 0, program 1 -> PMT_PID; section covers 9 fixed + 4 program + 4 CRC(unused by our reader).
     let mut s = vec![0x00, 0xb0, 0x0d, 0x00, 0x01, 0xc1, 0x00, 0x00];
-    s.extend_from_slice(&[0x00, 0x01, 0xe0 | (PMT_PID >> 8) as u8, (PMT_PID & 0xff) as u8]);
+    s.extend_from_slice(&[
+        0x00,
+        0x01,
+        0xe0 | (PMT_PID >> 8) as u8,
+        (PMT_PID & 0xff) as u8,
+    ]);
     s.extend_from_slice(&[0, 0, 0, 0]); // CRC placeholder (camera does not validate for uplink)
     s
 }
@@ -66,8 +71,19 @@ fn pat() -> Vec<u8> {
 fn pmt() -> Vec<u8> {
     // table_id 2, one ES: stream_type 0x91 on AUDIO_PID, prog_info_len 0, es_info_len 0.
     let mut s = vec![0x02, 0xb0, 0x12, 0x00, 0x01, 0xc1, 0x00, 0x00];
-    s.extend_from_slice(&[0xe0 | (AUDIO_PID >> 8) as u8, (AUDIO_PID & 0xff) as u8, 0x00, 0x00]);
-    s.extend_from_slice(&[0x91, 0xe0 | (AUDIO_PID >> 8) as u8, (AUDIO_PID & 0xff) as u8, 0x00, 0x00]);
+    s.extend_from_slice(&[
+        0xe0 | (AUDIO_PID >> 8) as u8,
+        (AUDIO_PID & 0xff) as u8,
+        0x00,
+        0x00,
+    ]);
+    s.extend_from_slice(&[
+        0x91,
+        0xe0 | (AUDIO_PID >> 8) as u8,
+        (AUDIO_PID & 0xff) as u8,
+        0x00,
+        0x00,
+    ]);
     s.extend_from_slice(&[0, 0, 0, 0]); // CRC placeholder
     s
 }

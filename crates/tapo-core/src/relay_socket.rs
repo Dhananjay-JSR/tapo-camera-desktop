@@ -19,7 +19,11 @@ fn tls_config() -> Arc<ClientConfig> {
     for cert in rustls_pemfile::certs(&mut &include_bytes!("../tplink_ca.pem")[..]).flatten() {
         let _ = roots.add(CertificateDer::from(cert));
     }
-    Arc::new(ClientConfig::builder().with_root_certificates(roots).with_no_client_auth())
+    Arc::new(
+        ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth(),
+    )
 }
 
 pub struct RelaySocket {
@@ -30,7 +34,12 @@ pub struct RelaySocket {
 impl RelaySocket {
     /// Connect, send the POST request line + headers, and leave the stream positioned at the
     /// response body. `headers` are extra `(name, value)` pairs after the fixed relay set.
-    pub fn open(host: &str, path_and_query: &str, token: &str, cdn_origin: Option<&str>) -> Result<Self> {
+    pub fn open(
+        host: &str,
+        path_and_query: &str,
+        token: &str,
+        cdn_origin: Option<&str>,
+    ) -> Result<Self> {
         let server = ServerName::try_from(host.to_string())
             .map_err(|_| Error::Cloud(format!("bad relay host {host}")))?;
         let conn = ClientConnection::new(tls_config(), server)
@@ -114,7 +123,10 @@ impl RelaySocket {
                 if t.is_empty() {
                     break;
                 }
-                if let Some(v) = t.strip_prefix("Content-Length:").or_else(|| t.strip_prefix("content-length:")) {
+                if let Some(v) = t
+                    .strip_prefix("Content-Length:")
+                    .or_else(|| t.strip_prefix("content-length:"))
+                {
                     len = v.trim().parse().unwrap_or(0);
                 }
             }

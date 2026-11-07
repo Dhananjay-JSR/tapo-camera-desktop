@@ -19,7 +19,12 @@ pub struct TalkSession {
 impl Cloud {
     /// Begin a talk-back session. Fails with the camera's error if the line is busy.
     pub fn start_talk(&self, device_id: &str) -> Result<TalkSession> {
-        let relay = self.relay_request(device_id, StreamType::Talk, json!({"mode": "half_duplex"}), true)?;
+        let relay = self.relay_request(
+            device_id,
+            StreamType::Talk,
+            json!({"mode": "half_duplex"}),
+            true,
+        )?;
         let (chost, _) = split_url(&relay.cdn_url);
         let (bhost, bpq) = split_url(&relay.business_url);
         let mut sock = RelaySocket::open(chost, bpq, &relay.token, Some(bhost))?;
@@ -28,15 +33,25 @@ impl Cloud {
             "type": "request", "seq": 1, "method": "get",
             "params": {"talk": {"channel": 0, "deviceId": device_id, "mode": "half_duplex", "playerId": self.session.term_id}}
         });
-        sock.write_part(&[("Content-Type", "application/json".into())], serde_json::to_vec(&req)?.as_slice())?;
+        sock.write_part(
+            &[("Content-Type", "application/json".into())],
+            serde_json::to_vec(&req)?.as_slice(),
+        )?;
 
         let reply: Value = serde_json::from_str(&sock.read_json_part()?)?;
         let code = reply["params"]["error_code"].as_i64().unwrap_or(-1);
         if code != 0 {
             return Err(Error::Camera(code));
         }
-        let session_id = reply["params"]["session_id"].as_str().unwrap_or("0").to_string();
-        Ok(TalkSession { sock, mux: TsMux::new(), session_id })
+        let session_id = reply["params"]["session_id"]
+            .as_str()
+            .unwrap_or("0")
+            .to_string();
+        Ok(TalkSession {
+            sock,
+            mux: TsMux::new(),
+            session_id,
+        })
     }
 }
 
@@ -45,7 +60,10 @@ impl TalkSession {
     pub fn send(&mut self, pcm: &[u8]) -> Result<()> {
         let ts = self.mux.frame(pcm);
         self.sock.write_part(
-            &[("X-Session-Id", self.session_id.clone()), ("Content-Type", "audio/mp2t".into())],
+            &[
+                ("X-Session-Id", self.session_id.clone()),
+                ("Content-Type", "audio/mp2t".into()),
+            ],
             &ts,
         )
     }
