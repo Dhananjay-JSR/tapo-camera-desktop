@@ -7,6 +7,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+/// JSON error codes arrive as either a string ("0", "-20677") or a number (0); normalise to a bare string.
+pub(crate) fn code_str(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
 pub const APP_NAME: &str = "TP-Link_Tapo_Android";
 pub const APP_VER: &str = "3.22.503";
 const WAP: &str = "https://n-wap.i.tplinkcloud.com";
@@ -141,7 +149,7 @@ impl Cloud {
             .body(body)
             .send()?
             .json()?;
-        if r.get("error_code").map(|c| c.to_string()) != Some("0".into()) {
+        if r.get("error_code").map(code_str).as_deref() != Some("0") {
             return Err(Error::Cloud(format!(
                 "{} {}",
                 r.get("error_code").unwrap_or(&Value::Null),
@@ -174,7 +182,7 @@ impl Cloud {
             "terminalName": "Tapo PC Client",
         }), false)?;
 
-        if r.get("errorCode").map(|c| c.to_string()) == Some("-20677".into()) {
+        if r.get("errorCode").map(code_str).as_deref() == Some("-20677") {
             self.wap(WAP, "/api/v2/account/getEmailVC4TerminalMFA", creds, false)?;
             let process_id = r
                 .get("MFAProcessId")

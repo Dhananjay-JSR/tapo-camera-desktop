@@ -1,6 +1,6 @@
 //! Cloud relay: request a session, open the stream, parse the camera's multipart MPEG-TS.
 
-use crate::client::{Cloud, APP_VER};
+use crate::client::{code_str, Cloud, APP_VER};
 use crate::error::{Error, Result};
 use crate::relay_socket::RelaySocket;
 use serde_json::{json, Value};
@@ -66,7 +66,7 @@ impl Cloud {
             .body(body)
             .send()?
             .json()?;
-        if r["errorCode"].to_string() != "0" {
+        if code_str(&r["errorCode"]) != "0" {
             return Err(Error::Cloud(format!("relay/request {}", r["errorCode"])));
         }
         let res = &r["result"];

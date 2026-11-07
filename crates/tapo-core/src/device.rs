@@ -1,5 +1,6 @@
 //! Camera list and commands, tunnelled through the cloud to each camera's own JSON API.
 
+use crate::client::code_str;
 use crate::client::Cloud;
 use crate::error::{Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -72,7 +73,7 @@ impl Cloud {
         }
         let r: Value = req.json(&body).send()?.json()?;
         let res = &r["outputParams"]["responseData"];
-        if res.get("error_code").map(|c| c.to_string()) != Some("0".into()) {
+        if res.get("error_code").map(code_str).as_deref() != Some("0") {
             return Err(Error::Camera(res["error_code"].as_i64().unwrap_or(-1)));
         }
         Ok(res.clone())
@@ -88,7 +89,7 @@ impl Cloud {
             }),
         )?;
         let one = &res["result"]["responses"][0];
-        if one.get("error_code").map(|c| c.to_string()) != Some("0".into()) {
+        if one.get("error_code").map(code_str).as_deref() != Some("0") {
             return Err(Error::Camera(one["error_code"].as_i64().unwrap_or(-1)));
         }
         Ok(one.get("result").cloned().unwrap_or(Value::Null))
