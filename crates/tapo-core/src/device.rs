@@ -134,6 +134,26 @@ impl Cloud {
         Ok(())
     }
 
+    /// Start continuous patrol/sweep. `horizontal` sweeps pan (x), else tilt (y).
+    pub fn cruise(&self, device_id: &str, horizontal: bool) -> Result<()> {
+        self.passthrough(
+            device_id,
+            "cruiseMove",
+            json!({"motor": {"cruise": {"coord": if horizontal {"x"} else {"y"}}}}),
+        )?;
+        Ok(())
+    }
+
+    /// Stop an active patrol/sweep.
+    pub fn cruise_stop(&self, device_id: &str) -> Result<()> {
+        self.passthrough(
+            device_id,
+            "cruiseStop",
+            json!({"motor": {"cruise_stop": {}}}),
+        )?;
+        Ok(())
+    }
+
     pub fn goto_preset(&self, device_id: &str, preset_id: &str) -> Result<()> {
         self.passthrough(
             device_id,
