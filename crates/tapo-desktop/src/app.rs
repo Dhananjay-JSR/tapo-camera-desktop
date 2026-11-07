@@ -1,6 +1,7 @@
 //! egui UI. All network work is delegated to the worker thread; the UI only sends `Cmd`s and
 //! renders `Evt`s, so it never blocks.
 
+use crate::decode::Frame;
 use crate::store;
 use crate::worker::{self, Cmd, Evt, Toggle};
 use std::collections::HashMap;
@@ -44,6 +45,10 @@ pub struct App {
     poll_since: i64,
     talk_on: bool,
     mic: Option<crate::audio_in::Mic>,
+    frame_tx: Sender<Frame>,
+    frame_rx: Receiver<Frame>,
+    texture: Option<egui::TextureHandle>,
+    playing: bool,
 }
 
 impl App {
@@ -51,6 +56,7 @@ impl App {
         let (evt_tx, rx) = std::sync::mpsc::channel();
         let ctx = cc.egui_ctx.clone();
         let tx = worker::spawn(store::load(), evt_tx, move || ctx.request_repaint());
+        let (frame_tx, frame_rx) = std::sync::mpsc::channel();
         App {
             tx,
             rx,
@@ -73,6 +79,10 @@ impl App {
             poll_since: now_ms(),
             talk_on: false,
             mic: None,
+            frame_tx,
+            frame_rx,
+            texture: None,
+            playing: false,
         }
     }
 
@@ -133,6 +143,24 @@ fn now_ms() -> i64 {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.drain();
+
+        // Upload the latest decoded frame (drop older ones to stay live).
+        let mut latest = None;
+        while let Ok(f) = self.frame_rx.try_recv() {
+            latest = Some(f);
+        }
+        if let Some(f) = latest {
+            let img = egui::ColorImage::from_rgb([f.width, f.height], &f.rgb);
+            match &mut self.texture {
+                Some(t) => t.set(img, egui::TextureOptions::LINEAR),
+                None => {
+                    self.texture = Some(ctx.load_texture("cam", img, egui::TextureOptions::LINEAR))
+                }
+            }
+        }
+        if self.playing {
+            ctx.request_repaint_after(std::time::Duration::from_millis(33));
+        }
 
         if self.notif_on && self.last_poll.elapsed().as_secs() >= 15 {
             self.last_poll = Instant::now();
@@ -244,14 +272,27 @@ impl App {
             if !streaming {
                 if ui.button("▶ Live view").clicked() {
                     self.live.insert(id.clone(), true);
-                    let _ = self.tx.send(Cmd::StartLive(id.clone()));
+                    self.texture = None;
+                    self.playing = true;
+                    let _ = self.tx.send(Cmd::StartLive {
+                        id: id.clone(),
+                        frames: self.frame_tx.clone(),
+                    });
                 }
             } else if ui.button("⏹ Stop").clicked() {
                 self.live.insert(id.clone(), false);
+                self.playing = false;
+                self.texture = None;
                 let _ = self.tx.send(Cmd::StopLive(id.clone()));
             }
         });
-        ui.label("Video opens in a separate ffplay window.");
+        if let Some(tex) = &self.texture {
+            let avail = ui.available_width().min(960.0);
+            let aspect = tex.size()[1] as f32 / tex.size()[0] as f32;
+            ui.image((tex.id(), egui::vec2(avail, avail * aspect)));
+        } else if streaming {
+            ui.label("Connecting… (waiting for the first keyframe)");
+        }
         ui.add_space(8.0);
         if ui
             .checkbox(&mut self.talk_on, "🎤 Talk (hold the conversation open)")
@@ -351,9 +392,12 @@ impl App {
         egui::ScrollArea::vertical().show(ui, |ui| {
             for c in &self.clips.clone() {
                 if ui.button(format!("▶ {}", fmt_time(c.start))).clicked() {
+                    self.texture = None;
+                    self.playing = true;
                     let _ = self.tx.send(Cmd::PlayClip {
                         id: id.clone(),
                         clip: c.clone(),
+                        frames: self.frame_tx.clone(),
                     });
                 }
             }

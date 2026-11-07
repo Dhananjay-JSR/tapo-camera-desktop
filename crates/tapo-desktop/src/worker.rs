@@ -1,7 +1,9 @@
 //! Background worker: owns the `Cloud`, runs every network call off the UI thread, and streams
 //! live/playback/talk on their own threads. UI ↔ worker communicate over channels.
 
-use crate::{store, video};
+use crate::audio_out::Speaker;
+use crate::decode::Frame;
+use crate::{store, stream};
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,18 +13,42 @@ use std::thread;
 use tapo_core::{Camera, Cloud, Error, Session, TalkSession};
 
 pub enum Cmd {
-    Login { email: String, password: String },
+    Login {
+        email: String,
+        password: String,
+    },
     Mfa(String),
     Cameras,
-    Ptz { id: String, x: i32, y: i32 },
-    Preset { id: String, preset: String },
+    Ptz {
+        id: String,
+        x: i32,
+        y: i32,
+    },
+    Preset {
+        id: String,
+        preset: String,
+    },
     Presets(String),
-    Toggle { id: String, what: Toggle, on: bool },
-    StartLive(String),
+    Toggle {
+        id: String,
+        what: Toggle,
+        on: bool,
+    },
+    StartLive {
+        id: String,
+        frames: Sender<Frame>,
+    },
     StopLive(String),
     Days(String),
-    Clips { id: String, date: String },
-    PlayClip { id: String, clip: tapo_core::Clip },
+    Clips {
+        id: String,
+        date: String,
+    },
+    PlayClip {
+        id: String,
+        clip: tapo_core::Clip,
+        frames: Sender<Frame>,
+    },
     Alerts(i64),
     StartTalk(String),
     StopTalk,
@@ -142,7 +168,7 @@ pub fn spawn(
                     Toggle::Privacy => c.set_privacy(&id, on),
                     Toggle::Alarm => c.set_alarm(&id, on),
                 }),
-                Cmd::StartLive(id) => {
+                Cmd::StartLive { id, frames } => {
                     if lives.contains_key(&id) {
                         continue;
                     }
@@ -153,7 +179,11 @@ pub fn spawn(
                     thread::spawn(move || {
                         let rate = c.mic_rate(&id).unwrap_or(16000);
                         match c.open_stream(&id, json!({"audio_config": {"encode_type": "G711ulaw", "sample_rate": "16"}})) {
-                            Ok(parts) => video::play(parts, &id, rate, stop),
+                            Ok(parts) => {
+                                if let Err(e) = stream::run(parts, frames, stop, Speaker::open(), rate) {
+                                    let _ = evt.send(Evt::Error(e));
+                                }
+                            }
                             Err(e) => { let _ = evt.send(Evt::Error(e.to_string())); }
                         }
                     });
@@ -163,18 +193,23 @@ pub fn spawn(
                         stop.store(true, Ordering::Relaxed);
                     }
                 }
-                Cmd::PlayClip { id, clip } => {
+                Cmd::PlayClip { id, clip, frames } => {
                     let c = cloud.clone();
                     let evt = evt.clone();
                     thread::spawn(move || {
                         let rate = c.mic_rate(&id).unwrap_or(16000);
                         match c.open_playback(&id, &clip) {
-                            Ok(parts) => video::play(
-                                parts,
-                                &format!("{id} playback"),
-                                rate,
-                                Arc::new(AtomicBool::new(false)),
-                            ),
+                            Ok(parts) => {
+                                if let Err(e) = stream::run(
+                                    parts,
+                                    frames,
+                                    Arc::new(AtomicBool::new(false)),
+                                    Speaker::open(),
+                                    rate,
+                                ) {
+                                    let _ = evt.send(Evt::Error(e));
+                                }
+                            }
                             Err(e) => {
                                 let _ = evt.send(Evt::Error(e.to_string()));
                             }

@@ -2,9 +2,10 @@
 
 mod app;
 mod audio_in;
+mod audio_out;
 mod decode;
 mod store;
-mod video;
+mod stream;
 mod worker;
 
 fn main() -> eframe::Result<()> {
