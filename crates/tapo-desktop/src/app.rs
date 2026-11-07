@@ -42,6 +42,8 @@ pub struct App {
     notif_on: bool,
     last_poll: Instant,
     poll_since: i64,
+    talk_on: bool,
+    mic: Option<crate::audio_in::Mic>,
 }
 
 impl App {
@@ -55,6 +57,7 @@ impl App {
             cams: Vec::new(), selected: None, live: HashMap::new(), presets: HashMap::new(),
             tab: Tab::Live, days: Vec::new(), clips: Vec::new(), sel_day: None,
             alerts: Vec::new(), notif_on: false, last_poll: Instant::now(), poll_since: now_ms(),
+            talk_on: false, mic: None,
         }
     }
 
@@ -77,8 +80,8 @@ impl App {
                     self.cams = c;
                 }
                 Evt::Presets(id, p) => { self.presets.insert(id, p); }
-                Evt::Days(_, d) => self.days = d,
-                Evt::Clips(_, c) => self.clips = c,
+                Evt::Days(id, d) => if self.selected.as_deref() == Some(&id) { self.days = d; },
+                Evt::Clips(id, c) => if self.selected.as_deref() == Some(&id) { self.clips = c; },
                 Evt::Alerts(a) => {
                     if let Some(last) = a.last() {
                         self.poll_since = last.time_ms + 1;
@@ -195,6 +198,21 @@ impl App {
             }
         });
         ui.label("Video opens in a separate ffplay window.");
+        ui.add_space(8.0);
+        if ui.checkbox(&mut self.talk_on, "🎤 Talk (hold the conversation open)").changed() {
+            if self.talk_on {
+                let _ = self.tx.send(Cmd::StartTalk(id.clone()));
+                self.mic = crate::audio_in::start(self.tx.clone());
+                if self.mic.is_none() {
+                    self.status = "No microphone available".into();
+                    self.talk_on = false;
+                    let _ = self.tx.send(Cmd::StopTalk);
+                }
+            } else {
+                self.mic = None;
+                let _ = self.tx.send(Cmd::StopTalk);
+            }
+        }
         ui.add_space(12.0);
 
         ui.label("Pan / tilt");

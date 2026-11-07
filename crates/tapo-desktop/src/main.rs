@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // no console window on Windows release
 
 mod app;
+mod audio_in;
 mod store;
 mod video;
 mod worker;
