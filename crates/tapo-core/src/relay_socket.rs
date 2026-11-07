@@ -8,7 +8,7 @@
 use crate::error::{Error, Result};
 use rustls::pki_types::{CertificateDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, Stream};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 
@@ -130,10 +130,3 @@ impl Read for RelaySocket {
         self.tls().read(buf)
     }
 }
-
-/// Buffered reader for consuming the response parts after any upstream setup is written.
-pub fn into_buf(sock: RelaySocket) -> BufReader<RelaySocket> {
-    BufReader::new(sock)
-}
-#[allow(dead_code)]
-fn _assert_bufread<R: BufRead>(_: R) {}
