@@ -4,6 +4,7 @@ members = ["crates/tapo-core", "crates/tapo-desktop"]
 
 [workspace.package]
 version = "0.1.0"
+authors = ["Dhananjay <47073516+Dhananjay-JSR@users.noreply.github.com>"]
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/Dhananjay-JSR/tapo-desktop"
