@@ -20,8 +20,11 @@ fn tls_config() -> Arc<ClientConfig> {
     for cert in rustls_pemfile::certs(&mut &include_bytes!("../tplink_ca.pem")[..]).flatten() {
         let _ = roots.add(CertificateDer::from(cert));
     }
+    // rustls needs an explicit provider when several are compiled in (reqwest pulls one too).
     Arc::new(
-        ClientConfig::builder()
+        ClientConfig::builder_with_provider(Arc::new(ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .expect("tls versions")
             .with_root_certificates(roots)
             .with_no_client_auth(),
     )
