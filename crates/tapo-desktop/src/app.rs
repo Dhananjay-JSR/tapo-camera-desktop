@@ -34,7 +34,7 @@ pub struct App {
     status: String,
     cams: Vec<Camera>,
     selected: Option<String>,
-    live: HashMap<String, bool>,
+    live_id: Option<String>,
     presets: HashMap<String, Vec<(String, String)>>,
     tab: Tab,
     days: Vec<String>,
@@ -51,7 +51,6 @@ pub struct App {
     video: crate::video_gl::GpuVideo,
     aspect: f32,
     playing: bool,
-    log: Vec<String>,
 }
 
 impl App {
@@ -70,7 +69,7 @@ impl App {
             status: String::new(),
             cams: Vec::new(),
             selected: None,
-            live: HashMap::new(),
+            live_id: None,
             presets: HashMap::new(),
             tab: Tab::Live,
             days: Vec::new(),
@@ -87,7 +86,6 @@ impl App {
             video: crate::video_gl::GpuVideo::new(),
             aspect: 9.0 / 16.0,
             playing: false,
-            log: Vec::new(),
         }
     }
 
@@ -100,6 +98,7 @@ impl App {
                     self.selected = None;
                     self.video = crate::video_gl::GpuVideo::new();
                     self.playing = false;
+                    self.live_id = None;
                     self.presets.clear();
                     self.status.clear();
                     self.email.clear();
@@ -288,11 +287,15 @@ impl App {
             .map(|c| c.name.clone())
             .unwrap_or_default();
         ui.heading(&name);
-        let streaming = *self.live.get(&id).unwrap_or(&false);
+        let streaming = self.live_id.as_deref() == Some(id.as_str());
         ui.horizontal(|ui| {
             if !streaming {
                 if ui.button("▶ Live view").clicked() {
-                    self.live.insert(id.clone(), true);
+                    // Only one live stream at a time: stop the previous so they don't overlap.
+                    if let Some(prev) = self.live_id.take() {
+                        let _ = self.tx.send(Cmd::StopLive(prev));
+                    }
+                    self.live_id = Some(id.clone());
                     self.video = crate::video_gl::GpuVideo::new();
                     self.playing = true;
                     let _ = self.tx.send(Cmd::StartLive {
@@ -301,7 +304,7 @@ impl App {
                     });
                 }
             } else if ui.button("⏹ Stop").clicked() {
-                self.live.insert(id.clone(), false);
+                self.live_id = None;
                 self.playing = false;
                 self.video = crate::video_gl::GpuVideo::new();
                 let _ = self.tx.send(Cmd::StopLive(id.clone()));
@@ -480,43 +483,30 @@ impl App {
 }
 
 impl App {
-    fn push_log(&mut self, msg: &str) {
-        self.log.push(format!("{}  {msg}", now_hms()));
-        let overflow = self.log.len().saturating_sub(1000);
-        if overflow > 0 {
-            self.log.drain(0..overflow); // keep the last 1000 lines
-        }
+    fn push_log(&self, msg: &str) {
+        crate::logbuf::log(msg);
     }
 
     fn log_ui(&mut self, ui: &mut egui::Ui) {
+        let lines = crate::logbuf::snapshot();
         ui.horizontal(|ui| {
             ui.heading("Log");
             if ui.button("Copy all").clicked() {
-                let all = self.log.join("\n");
-                ui.output_mut(|o| o.copied_text = all);
+                ui.output_mut(|o| o.copied_text = lines.join("\n"));
             }
             if ui.button("Clear").clicked() {
-                self.log.clear();
+                crate::logbuf::clear();
             }
         });
         ui.separator();
         egui::ScrollArea::vertical()
             .stick_to_bottom(true)
             .show(ui, |ui| {
-                for line in &self.log {
+                for line in &lines {
                     ui.monospace(line);
                 }
             });
     }
-}
-
-fn now_hms() -> String {
-    let s = (SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        % 86400) as i64;
-    format!("{:02}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
 }
 
 fn fmt_time(epoch_secs: i64) -> String {
