@@ -13,6 +13,7 @@ mod video_gl;
 mod worker;
 
 fn main() -> eframe::Result<()> {
+    logbuf::init();
     logbuf::install_panic_hook();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

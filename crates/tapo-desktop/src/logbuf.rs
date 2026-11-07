@@ -1,6 +1,10 @@
 //! Process-wide log sink shared by the UI, background threads, and the panic hook, so the Log
 //! tab's "Copy all" captures everything (events, backend warnings, crashes) in one place.
 
+use directories::ProjectDirs;
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -9,6 +13,36 @@ const CAP: usize = 2000;
 fn buf() -> &'static Mutex<Vec<String>> {
     static B: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
     B.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn file() -> &'static Mutex<Option<File>> {
+    static F: OnceLock<Mutex<Option<File>>> = OnceLock::new();
+    F.get_or_init(|| Mutex::new(None))
+}
+
+fn path_cell() -> &'static OnceLock<Option<PathBuf>> {
+    static P: OnceLock<Option<PathBuf>> = OnceLock::new();
+    &P
+}
+
+/// Full path of the on-disk log file, if available.
+pub fn path() -> Option<PathBuf> {
+    path_cell().get().cloned().flatten()
+}
+
+/// Create a fresh log file for this session. Call once at startup.
+pub fn init() {
+    let p = ProjectDirs::from("dev", "Dhananjay-JSR", "tapo-desktop").and_then(|d| {
+        std::fs::create_dir_all(d.data_dir()).ok()?;
+        Some(d.data_dir().join("tapo-desktop.log"))
+    });
+    if let Some(ref p) = p {
+        if let Ok(f) = File::create(p) {
+            *file().lock().unwrap() = Some(f);
+        }
+    }
+    let _ = path_cell().set(p);
+    log("session started");
 }
 
 fn hms() -> String {
@@ -22,11 +56,18 @@ fn hms() -> String {
 
 /// Append a timestamped line. Safe to call from any thread.
 pub fn log(msg: impl AsRef<str>) {
+    let line = format!("{}  {}", hms(), msg.as_ref());
     if let Ok(mut b) = buf().lock() {
-        b.push(format!("{}  {}", hms(), msg.as_ref()));
+        b.push(line.clone());
         let overflow = b.len().saturating_sub(CAP);
         if overflow > 0 {
             b.drain(0..overflow);
+        }
+    }
+    if let Ok(mut f) = file().lock() {
+        if let Some(f) = f.as_mut() {
+            let _ = writeln!(f, "{line}");
+            let _ = f.flush();
         }
     }
 }
@@ -52,4 +93,17 @@ pub fn install_panic_hook() {
         log(format!("PANIC [{thread}]: {info}"));
         prev(info);
     }));
+}
+
+/// Open the log file in the OS default application.
+pub fn open_file() {
+    let Some(p) = path() else { return };
+    let cmd = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let _ = std::process::Command::new(cmd).arg(p).spawn();
 }

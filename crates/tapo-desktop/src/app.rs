@@ -494,10 +494,16 @@ impl App {
             if ui.button("Copy all").clicked() {
                 ui.output_mut(|o| o.copied_text = lines.join("\n"));
             }
+            if ui.button("Open log file").clicked() {
+                crate::logbuf::open_file();
+            }
             if ui.button("Clear").clicked() {
                 crate::logbuf::clear();
             }
         });
+        if let Some(p) = crate::logbuf::path() {
+            ui.weak(format!("Log file: {}", p.display()));
+        }
         ui.separator();
         egui::ScrollArea::vertical()
             .stick_to_bottom(true)
