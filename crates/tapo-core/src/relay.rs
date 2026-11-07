@@ -104,6 +104,13 @@ impl Cloud {
 }
 
 /// Streams the `----device-stream-boundary--` parts, yielding only `video/mp2t` payloads.
+/// Keepalive for a relay-backed stream (live/playback).
+impl Mp2tParts<RelaySocket> {
+    pub fn heartbeat(&mut self) -> Result<()> {
+        self.reader.get_mut().heartbeat()
+    }
+}
+
 pub struct Mp2tParts<R: Read> {
     reader: BufReader<R>,
 }

@@ -8,6 +8,7 @@ mod error;
 pub mod playback;
 pub mod relay;
 mod relay_socket;
+pub use relay_socket::RelaySocket;
 mod sign;
 pub mod talk;
 pub mod ts_mux;

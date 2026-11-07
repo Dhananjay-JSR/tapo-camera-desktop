@@ -115,6 +115,14 @@ impl RelaySocket {
         Ok(())
     }
 
+    /// Send the keepalive the camera expects, or it closes the stream after a while.
+    pub fn heartbeat(&mut self) -> Result<()> {
+        self.write_part(
+            &[("Content-Type", "application/json".into())],
+            br#"{"type":"notification","params":{"event_type":"heartbeat"}}"#,
+        )
+    }
+
     /// Read the next JSON control part the camera sends (used by talk-back for the session id).
     pub fn read_json_part(&mut self) -> Result<String> {
         loop {
