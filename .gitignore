@@ -4,3 +4,5 @@
 session.json
 *.flow
 *.ts
+/dist
+assets/AppIcon.iconset
