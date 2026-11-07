@@ -7,8 +7,11 @@ pub enum Error {
     Json(serde_json::Error),
     /// TP-Link cloud returned a non-zero `error_code` (WAP) with its message.
     Cloud(String),
-    /// A camera `passthrough` command returned a non-zero `error_code`.
-    Camera(i64),
+    /// A camera command returned a non-zero `error_code`; `method` is which call failed.
+    Camera {
+        method: String,
+        code: i64,
+    },
     /// Login needs the emailed MFA code; the caller must supply it.
     MfaRequired {
         process_id: String,
@@ -24,7 +27,7 @@ impl fmt::Display for Error {
             Error::Io(e) => write!(f, "io error: {e}"),
             Error::Json(e) => write!(f, "bad response: {e}"),
             Error::Cloud(m) => write!(f, "cloud error: {m}"),
-            Error::Camera(c) => write!(f, "camera error {c}"),
+            Error::Camera { method, code } => write!(f, "{method}: camera error {code}"),
             Error::MfaRequired { email, .. } => write!(f, "verification code sent to {email}"),
             Error::Auth(m) => write!(f, "login failed: {m}"),
         }

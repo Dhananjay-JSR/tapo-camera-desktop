@@ -42,7 +42,10 @@ impl Cloud {
         let reply: Value = serde_json::from_str(&sock.read_json_part()?)?;
         let code = reply["params"]["error_code"].as_i64().unwrap_or(-1);
         if code != 0 {
-            return Err(Error::Camera(code));
+            return Err(Error::Camera {
+                method: "talk".into(),
+                code,
+            });
         }
         let session_id = reply["params"]["session_id"]
             .as_str()

@@ -74,7 +74,10 @@ impl Cloud {
         let r: Value = req.json(&body).send()?.json()?;
         let res = &r["outputParams"]["responseData"];
         if res.get("error_code").map(code_str).as_deref() != Some("0") {
-            return Err(Error::Camera(res["error_code"].as_i64().unwrap_or(-1)));
+            return Err(Error::Camera {
+                method: "services-sync".into(),
+                code: res["error_code"].as_i64().unwrap_or(-1),
+            });
         }
         Ok(res.clone())
     }
@@ -90,7 +93,10 @@ impl Cloud {
         )?;
         let one = &res["result"]["responses"][0];
         if one.get("error_code").map(code_str).as_deref() != Some("0") {
-            return Err(Error::Camera(one["error_code"].as_i64().unwrap_or(-1)));
+            return Err(Error::Camera {
+                method: method.into(),
+                code: one["error_code"].as_i64().unwrap_or(-1),
+            });
         }
         Ok(one.get("result").cloned().unwrap_or(Value::Null))
     }
