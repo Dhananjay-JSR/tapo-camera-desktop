@@ -1,7 +1,7 @@
 //! egui UI. All network work is delegated to the worker thread; the UI only sends `Cmd`s and
 //! renders `Evt`s, so it never blocks.
 
-use crate::decode::Frame;
+use crate::decode::{yuv_to_rgb, YuvFrame};
 use crate::store;
 use crate::worker::{self, Cmd, Evt, Toggle};
 use std::collections::HashMap;
@@ -45,8 +45,8 @@ pub struct App {
     poll_since: i64,
     talk_on: bool,
     mic: Option<crate::audio_in::Mic>,
-    frame_tx: Sender<Frame>,
-    frame_rx: Receiver<Frame>,
+    frame_tx: Sender<YuvFrame>,
+    frame_rx: Receiver<YuvFrame>,
     texture: Option<egui::TextureHandle>,
     playing: bool,
 }
@@ -150,7 +150,7 @@ impl eframe::App for App {
             latest = Some(f);
         }
         if let Some(f) = latest {
-            let img = egui::ColorImage::from_rgb([f.width, f.height], &f.rgb);
+            let img = egui::ColorImage::from_rgb([f.w, f.h], &yuv_to_rgb(&f));
             match &mut self.texture {
                 Some(t) => t.set(img, egui::TextureOptions::LINEAR),
                 None => {

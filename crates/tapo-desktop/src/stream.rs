@@ -1,7 +1,7 @@
 //! Live/playback streaming: TS → video frames (decoded) sent to the UI, audio sent to the speaker.
 
 use crate::audio_out::Speaker;
-use crate::decode::{Frame, H264};
+use crate::decode::{new_decoder, YuvFrame};
 use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -13,13 +13,13 @@ use tapo_core::{TsDemux, VideoCodec};
 /// `Speaker` is given, is played. Returns an error string if the camera sends HEVC (unsupported).
 pub fn run<R: Read>(
     mut parts: Mp2tParts<R>,
-    frames: Sender<Frame>,
+    frames: Sender<YuvFrame>,
     stop: Arc<AtomicBool>,
     speaker: Option<Speaker>,
     audio_rate: u32,
 ) -> Result<(), String> {
     let mut demux = TsDemux::new();
-    let mut dec = H264::new();
+    let mut dec = new_decoder();
     while !stop.load(Ordering::Relaxed) {
         let Ok(Some(ts)) = parts.next_payload() else {
             break;

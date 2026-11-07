@@ -2,7 +2,7 @@
 //! live/playback/talk on their own threads. UI ↔ worker communicate over channels.
 
 use crate::audio_out::Speaker;
-use crate::decode::Frame;
+use crate::decode::YuvFrame;
 use crate::{store, stream};
 use serde_json::json;
 use std::collections::HashMap;
@@ -36,7 +36,7 @@ pub enum Cmd {
     },
     StartLive {
         id: String,
-        frames: Sender<Frame>,
+        frames: Sender<YuvFrame>,
     },
     StopLive(String),
     Days(String),
@@ -47,7 +47,7 @@ pub enum Cmd {
     PlayClip {
         id: String,
         clip: tapo_core::Clip,
-        frames: Sender<Frame>,
+        frames: Sender<YuvFrame>,
     },
     Alerts(i64),
     StartTalk(String),
