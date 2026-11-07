@@ -21,6 +21,7 @@ enum Tab {
     Live,
     Playback,
     Settings,
+    Log,
 }
 
 pub struct App {
@@ -50,6 +51,7 @@ pub struct App {
     video: crate::video_gl::GpuVideo,
     aspect: f32,
     playing: bool,
+    log: Vec<String>,
 }
 
 impl App {
@@ -85,6 +87,7 @@ impl App {
             video: crate::video_gl::GpuVideo::new(),
             aspect: 9.0 / 16.0,
             playing: false,
+            log: Vec::new(),
         }
     }
 
@@ -124,12 +127,17 @@ impl App {
                         self.poll_since = last.time_ms + 1;
                     }
                     for al in &a {
-                        self.status = format!("{}: {}", al.device, al.text);
+                        let line = format!("{}: {}", al.device, al.text);
+                        self.push_log(&line);
+                        self.status = line;
                     }
                     self.alerts.splice(0..0, a);
                     self.alerts.truncate(200);
                 }
-                Evt::Status(s) | Evt::Error(s) => self.status = s,
+                Evt::Status(s) | Evt::Error(s) => {
+                    self.push_log(&s);
+                    self.status = s;
+                }
             }
         }
     }
@@ -177,9 +185,7 @@ impl App {
     fn login_ui(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.add_space(120.0);
-                ui.heading("Tapo Desktop");
-                ui.add_space(16.0);
+                ui.add_space(140.0);
                 if self.auth == Auth::Mfa {
                     ui.label(&self.status);
                     ui.add(
@@ -217,6 +223,7 @@ impl App {
                 ui.selectable_value(&mut self.tab, Tab::Live, "Live");
                 ui.selectable_value(&mut self.tab, Tab::Playback, "Playback");
                 ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
+                ui.selectable_value(&mut self.tab, Tab::Log, "Log");
                 ui.separator();
                 if ui.checkbox(&mut self.notif_on, "Notifications").changed() && self.notif_on {
                     self.poll_since = now_ms();
@@ -249,6 +256,7 @@ impl App {
             Tab::Live => self.live_ui(ui),
             Tab::Playback => self.playback_ui(ui),
             Tab::Settings => self.settings_ui(ui),
+            Tab::Log => self.log_ui(ui),
         });
     }
 
@@ -453,6 +461,46 @@ impl App {
             on,
         });
     }
+}
+
+impl App {
+    fn push_log(&mut self, msg: &str) {
+        self.log.push(format!("{}  {msg}", now_hms()));
+        let overflow = self.log.len().saturating_sub(1000);
+        if overflow > 0 {
+            self.log.drain(0..overflow); // keep the last 1000 lines
+        }
+    }
+
+    fn log_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.heading("Log");
+            if ui.button("Copy all").clicked() {
+                let all = self.log.join("\n");
+                ui.output_mut(|o| o.copied_text = all);
+            }
+            if ui.button("Clear").clicked() {
+                self.log.clear();
+            }
+        });
+        ui.separator();
+        egui::ScrollArea::vertical()
+            .stick_to_bottom(true)
+            .show(ui, |ui| {
+                for line in &self.log {
+                    ui.monospace(line);
+                }
+            });
+    }
+}
+
+fn now_hms() -> String {
+    let s = (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        % 86400) as i64;
+    format!("{:02}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
 }
 
 fn fmt_time(epoch_secs: i64) -> String {
