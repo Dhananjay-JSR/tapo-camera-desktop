@@ -7,7 +7,7 @@ version = "0.1.0"
 authors = ["Dhananjay <47073516+Dhananjay-JSR@users.noreply.github.com>"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/Dhananjay-JSR/tapo-desktop"
+repository = "https://github.com/Dhananjay-JSR/tapo-camera-desktop"
 
 [profile.release]
 opt-level = 3
