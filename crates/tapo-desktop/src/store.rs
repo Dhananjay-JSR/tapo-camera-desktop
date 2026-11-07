@@ -29,3 +29,9 @@ pub fn save(session: &Session) {
         }
     }
 }
+
+pub fn clear() {
+    if let Some(p) = path() {
+        let _ = std::fs::remove_file(p);
+    }
+}

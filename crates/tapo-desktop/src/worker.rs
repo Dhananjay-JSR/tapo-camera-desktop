@@ -53,6 +53,7 @@ pub enum Cmd {
     StartTalk(String),
     StopTalk,
     Mic(Vec<u8>),
+    Logout,
 }
 
 #[derive(Clone, Copy)]
@@ -64,6 +65,7 @@ pub enum Toggle {
 
 pub enum Evt {
     LoggedIn,
+    LoggedOut,
     MfaRequired(String),
     Cameras(Vec<Camera>),
     Presets(String, Vec<(String, String)>),
@@ -231,6 +233,18 @@ pub fn spawn(
                     }
                 }
                 Cmd::StopTalk => talk = None,
+                Cmd::Logout => {
+                    for (_, stop) in lives.drain() {
+                        stop.store(true, Ordering::Relaxed);
+                    }
+                    talk = None;
+                    cloud.session.token = None;
+                    cloud.session.wap_v2 = None;
+                    cloud.session.cipc = None;
+                    cloud.session.app_server = None;
+                    store::clear();
+                    send(Evt::LoggedOut);
+                }
             }
         }
     });

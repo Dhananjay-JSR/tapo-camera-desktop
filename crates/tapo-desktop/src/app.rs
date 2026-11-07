@@ -94,6 +94,17 @@ impl App {
     fn drain(&mut self) {
         while let Ok(e) = self.rx.try_recv() {
             match e {
+                Evt::LoggedOut => {
+                    self.auth = Auth::Out;
+                    self.cams.clear();
+                    self.selected = None;
+                    self.video = crate::video_gl::GpuVideo::new();
+                    self.playing = false;
+                    self.presets.clear();
+                    self.status.clear();
+                    self.email.clear();
+                    self.password.clear();
+                }
                 Evt::LoggedIn => {
                     self.auth = Auth::In;
                     self.password.clear();
@@ -229,6 +240,11 @@ impl App {
                     self.poll_since = now_ms();
                     let _ = self.tx.send(Cmd::Alerts(self.poll_since));
                 }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("Log out").clicked() {
+                        let _ = self.tx.send(Cmd::Logout);
+                    }
+                });
             });
         });
         egui::SidePanel::left("cams")
