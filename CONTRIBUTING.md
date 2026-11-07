@@ -44,10 +44,9 @@ your OS, and the steps. The log already masks tokens.
 
 ## Protocol notes
 
-This client targets the TP-Link cloud. It is
-cameras. It is unofficial and may change. When adding an endpoint or command, prefer values
-verified against a camera, and keep error codes surfaced with the failing method name so issues
-stay diagnosable.
+This client talks to the TP-Link cloud, which is unofficial and may change. When adding an endpoint
+or command, verify it against a real camera and keep error codes surfaced with the failing method
+name so issues stay diagnosable.
 
 ## Releases
 
