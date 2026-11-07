@@ -16,6 +16,9 @@ pub mod tsdemux;
 
 pub use alerts::Alert;
 pub use client::{Cloud, Session, APP_NAME, APP_VER};
+
+/// This crate's version.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub use device::Camera;
 pub use error::{Error, Result};
 pub use playback::Clip;

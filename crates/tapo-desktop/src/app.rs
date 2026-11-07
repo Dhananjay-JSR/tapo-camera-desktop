@@ -430,8 +430,12 @@ impl App {
     }
 
     fn settings_ui(&mut self, ui: &mut egui::Ui) {
+        ui.heading("About");
+        ui.label(format!("App version: {}", env!("CARGO_PKG_VERSION")));
+        ui.label(format!("Core version: {}", tapo_core::VERSION));
+        ui.add_space(12.0);
         let Some(id) = self.selected.clone() else {
-            ui.label("Select a camera.");
+            ui.label("Select a camera for controls.");
             return;
         };
         ui.heading("Camera controls");
