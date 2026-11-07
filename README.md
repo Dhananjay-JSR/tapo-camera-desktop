@@ -21,28 +21,12 @@ Sign in with your TP-Link account (two-factor supported) and view your cameras f
 Builds are produced automatically by GitHub Actions on the [Releases](../../releases) page.
 `latest` tracks `main`; `v*` tags are stable. No installer.
 
-- **macOS**: `Tapo Desktop.app` (zipped). See [macOS first launch](#macos-first-launch).
+- **macOS**: unzip, then run this once and open it:
+  ```sh
+  xattr -dr com.apple.quarantine "Tapo Desktop.app"
+  ```
 - **Windows**: a single `tapo-desktop.exe`. Just run it.
 - **Linux**: a single executable. Run `chmod +x` on it, then run it.
-
-## macOS first launch
-
-The app is ad-hoc signed but not notarized by Apple (that needs a paid Apple Developer account),
-so macOS Gatekeeper blocks it on first open. This is expected for apps distributed outside the App
-Store.
-
-1. Unzip, and move `Tapo Desktop.app` to `/Applications` (or anywhere you like).
-2. Right-click (or Control-click) the app and choose **Open**, then **Open** again in the dialog.
-   You only need to do this once; afterwards it opens normally.
-
-If macOS says **"Tapo Desktop is damaged and can't be opened"**, that is the download quarantine
-flag. Clear it once, then open the app:
-
-```sh
-xattr -dr com.apple.quarantine "/Applications/Tapo Desktop.app"
-```
-
-Talk-back needs microphone access; macOS will prompt for it the first time you use Talk.
 
 ## Workspace
 
