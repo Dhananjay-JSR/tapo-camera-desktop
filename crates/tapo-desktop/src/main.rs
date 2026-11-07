@@ -19,7 +19,8 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([980.0, 640.0])
-            .with_title("Tapo Desktop"),
+            .with_title("Tapo Desktop")
+            .with_icon(std::sync::Arc::new(icon::icon())),
         ..Default::default()
     };
     eframe::run_native(
