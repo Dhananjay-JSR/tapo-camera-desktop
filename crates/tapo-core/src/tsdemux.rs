@@ -74,7 +74,11 @@ impl TsDemux {
                 if pl.len() > 1 + 11 {
                     self.pmt_pid = Some((((pl[1 + 10] & 0x1f) as u16) << 8) | pl[1 + 11] as u16);
                 }
-            } else if Some(pid) == self.pmt_pid && pusi && self.audio_pid.is_none() && self.video_pid.is_none() {
+            } else if Some(pid) == self.pmt_pid
+                && pusi
+                && self.audio_pid.is_none()
+                && self.video_pid.is_none()
+            {
                 self.parse_pmt(pl);
             } else if Some(pid) == self.video_pid {
                 let es = strip_pes(pl, pusi);

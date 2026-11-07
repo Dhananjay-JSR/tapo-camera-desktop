@@ -2,6 +2,7 @@
 
 mod app;
 mod audio_in;
+mod decode;
 mod store;
 mod video;
 mod worker;
