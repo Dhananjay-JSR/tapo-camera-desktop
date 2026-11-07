@@ -43,7 +43,7 @@ pub fn start(tx: Sender<Cmd>) -> Option<Mic> {
         out: Vec::with_capacity(2048),
         tx,
     }));
-    let err = |e| eprintln!("mic error: {e}");
+    let err = |e| crate::logbuf::log(format!("mic error: {e}"));
     let s = state.clone();
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_input_stream(

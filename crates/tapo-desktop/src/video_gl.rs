@@ -97,7 +97,7 @@ impl GlObjects {
                 gl.shader_source(sh, src);
                 gl.compile_shader(sh);
                 if !gl.get_shader_compile_status(sh) {
-                    eprintln!("shader compile: {}", gl.get_shader_info_log(sh));
+                    crate::logbuf::log(format!("shader compile: {}", gl.get_shader_info_log(sh)));
                     return None;
                 }
                 gl.attach_shader(program, sh);
@@ -105,7 +105,10 @@ impl GlObjects {
             }
             gl.link_program(program);
             if !gl.get_program_link_status(program) {
-                eprintln!("program link: {}", gl.get_program_info_log(program));
+                crate::logbuf::log(format!(
+                    "program link: {}",
+                    gl.get_program_info_log(program)
+                ));
                 return None;
             }
             let vao = gl.create_vertex_array().ok()?;

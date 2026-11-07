@@ -40,7 +40,7 @@ impl Speaker {
                         frame.fill(s);
                     }
                 },
-                |e| eprintln!("audio out error: {e}"),
+                |e| crate::logbuf::log(format!("audio out error: {e}")),
                 None,
             )
             .ok()?;

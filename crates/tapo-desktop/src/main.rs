@@ -6,12 +6,14 @@ mod audio_out;
 mod decode;
 #[cfg(all(target_os = "macos", feature = "hw-videotoolbox"))]
 mod decode_vt;
+mod logbuf;
 mod store;
 mod stream;
 mod video_gl;
 mod worker;
 
 fn main() -> eframe::Result<()> {
+    logbuf::install_panic_hook();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([980.0, 640.0])
