@@ -9,7 +9,7 @@ them from anywhere.
 
 ## Features
 
-- **Live view + audio** for every camera (1080p H.264 / G.711).
+- **Live view + audio** for every camera (1080p H.264 / G.711), decoded and shown in-window.
 - **Pan / tilt** and **presets** (C200, C210; C310 is fixed).
 - **Talk-back** — push your microphone to the camera speaker.
 - **Playback** of SD-card recordings by day.
@@ -27,8 +27,8 @@ The core is fully decoupled from the UI — it can also back a CLI, a service, o
 
 ## Build & run
 
-Requires a Rust toolchain and **ffmpeg** (`ffplay`) on `PATH` — video/audio decoding is delegated
-to ffmpeg rather than bundled.
+Self-contained — **no ffmpeg needed**. H.264 is decoded in-app (openh264, compiled in) and audio
+plays via the OS. You only need a Rust toolchain with a C compiler (for openh264).
 
 ```sh
 # Linux also needs: sudo apt-get install libasound2-dev libxkbcommon-dev libwayland-dev libxcb1-dev
@@ -39,7 +39,8 @@ cargo run --release -p tapo-desktop
 
 The protocol was built for the TP-Link cloud.
 Highlights: HMAC-SHA1 request signing, a cloud relay that streams MPEG-TS over a long HTTPS POST,
-G.711 audio carried under private stream types, and a half-duplex talk-back uplink. The embedded
+G.711 audio carried under private stream types, and a half-duplex talk-back uplink. Video is
+decoded with the bundled openh264; audio uses cpal — so the app has no external runtime deps. The embedded
 `tplink_ca.pem` is TP-Link's public app CA, needed to validate the cloud hosts.
 
 ## Notes
