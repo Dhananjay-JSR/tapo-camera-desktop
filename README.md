@@ -18,8 +18,12 @@ Sign in with your TP-Link account (two-factor supported) and view your cameras f
 
 ## Download
 
-Prebuilt packages for macOS (`.dmg`), Linux (`.tar.gz`) and Windows (`.zip`) are built by
-GitHub Actions and attached to each [Release](../../releases).
+Prebuilt, no-install builds are produced automatically by GitHub Actions and attached to the
+[Releases](../../releases) page — `latest` tracks `main`, and `v*` tags are stable:
+
+- **macOS** — `Tapo Desktop.app` (zipped). Unzip and double-click. (Unsigned: first launch, right-click → Open.)
+- **Windows** — a single `tapo-desktop.exe`. Just run it.
+- **Linux** — a single executable. `chmod +x` and run.
 
 ## Workspace
 

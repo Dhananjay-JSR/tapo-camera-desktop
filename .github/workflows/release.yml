@@ -1,6 +1,7 @@
 name: Release
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -14,31 +15,36 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            artifact: "dist/*.dmg"
+            artifact: "dist/*-macos.zip"
           - os: ubuntu-latest
-            artifact: "dist/*.tar.gz"
+            artifact: "dist/*-linux-x86_64"
           - os: windows-latest
-            artifact: "dist/*.zip"
+            artifact: "dist/*-windows-x86_64.exe"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Tag must match Cargo version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          ver=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ "${{ github.ref_name }}" != "v$ver" ]; then
+            echo "::error::Tag ${{ github.ref_name }} does not match Cargo version v$ver. Bump Cargo.toml or retag."
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
       - name: Linux deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libxkbcommon-dev libwayland-dev libxcb1-dev
-
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: ./packaging/macos.sh
-
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: ./packaging/linux.sh
-
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -46,15 +52,41 @@ jobs:
           cargo build --release -p tapo-desktop
           $ver = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"').Matches[0].Groups[1].Value
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path target/release/tapo-desktop.exe -DestinationPath "dist/tapo-desktop-$ver-windows-x86_64.zip" -Force
-
+          Copy-Item target/release/tapo-desktop.exe "dist/tapo-desktop-$ver-windows-x86_64.exe"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}
           path: ${{ matrix.artifact }}
 
-      - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: ${{ matrix.artifact }}
+          path: dist
+          merge-multiple: true
+      - name: Resolve release tag
+        id: rel
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "pre=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            echo "pre=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -R dist
+          if [ "${{ steps.rel.outputs.tag }}" = "latest" ]; then
+            gh release delete latest --cleanup-tag -y -R "${{ github.repository }}" || true
+          fi
+          gh release create "${{ steps.rel.outputs.tag }}" dist/* \
+            -R "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.rel.outputs.tag }}" \
+            --notes "Automated build of ${{ github.sha }}" \
+            $([ "${{ steps.rel.outputs.pre }}" = "true" ] && echo --prerelease)

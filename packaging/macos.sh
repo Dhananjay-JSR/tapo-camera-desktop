@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
-# Build a macOS .app bundle and .dmg for tapo-desktop. Run on macOS.
+# Build a double-clickable macOS .app (zipped for distribution — no installer). Run on macOS.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-
-APP="Tapo Desktop"
-BIN="tapo-desktop"
+APP="Tapo Desktop"; BIN="tapo-desktop"
 VER="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
-OUT="dist"
-APPDIR="$OUT/$APP.app"
+OUT="dist"; APPDIR="$OUT/$APP.app"
 
 cargo build --release -p tapo-desktop
-rm -rf "$APPDIR"
-mkdir -p "$APPDIR/Contents/MacOS" "$APPDIR/Contents/Resources"
+rm -rf "$APPDIR"; mkdir -p "$APPDIR/Contents/MacOS" "$APPDIR/Contents/Resources"
 cp "target/release/$BIN" "$APPDIR/Contents/MacOS/$BIN"
 cp assets/icon.icns "$APPDIR/Contents/Resources/icon.icns"
-
 cat > "$APPDIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -32,11 +27,6 @@ cat > "$APPDIR/Contents/Info.plist" <<PLIST
   <key>NSMicrophoneUsageDescription</key><string>Talk-back sends your voice to the camera speaker.</string>
 </dict></plist>
 PLIST
-
-# .dmg (best-effort; skip if hdiutil unavailable)
-if command -v hdiutil >/dev/null; then
-  rm -f "$OUT/$APP-$VER.dmg"
-  hdiutil create -volname "$APP" -srcfolder "$APPDIR" -ov -format UDZO "$OUT/$APP-$VER.dmg" >/dev/null
-fi
-echo "built: $APPDIR"
-ls -la "$OUT"
+# Zip the .app (a bundle is a folder; zipping keeps it a single download). No .dmg, no installer.
+( cd "$OUT" && ditto -c -k --sequesterRsrc --keepParent "$APP.app" "Tapo-Desktop-$VER-macos.zip" )
+echo "built: $APPDIR  and  $OUT/Tapo-Desktop-$VER-macos.zip"
