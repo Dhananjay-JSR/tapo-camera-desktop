@@ -19,9 +19,17 @@ enum Auth {
 #[derive(PartialEq, Clone, Copy)]
 enum Tab {
     Live,
+    Grid,
     Playback,
     Settings,
     Log,
+}
+
+/// One camera's live surface in the grid (muted; its own decoded-frame channel).
+struct Tile {
+    video: crate::video_gl::GpuVideo,
+    rx: Receiver<YuvFrame>,
+    aspect: f32,
 }
 
 pub struct App {
@@ -52,6 +60,7 @@ pub struct App {
     aspect: f32,
     playing: bool,
     about_open: bool,
+    grid: HashMap<String, Tile>,
 }
 
 impl App {
@@ -89,6 +98,7 @@ impl App {
             aspect: 9.0 / 16.0,
             playing: false,
             about_open: false,
+            grid: HashMap::new(),
         }
     }
 
@@ -102,6 +112,7 @@ impl App {
                     self.video = crate::video_gl::GpuVideo::new();
                     self.playing = false;
                     self.live_id = None;
+                    self.grid.clear();
                     self.presets.clear();
                     self.status.clear();
                     self.email.clear();
@@ -176,7 +187,17 @@ impl eframe::App for App {
             self.aspect = f.h as f32 / f.w as f32;
             self.video.set_frame(f);
         }
-        if self.playing {
+        for tile in self.grid.values_mut() {
+            let mut latest = None;
+            while let Ok(f) = tile.rx.try_recv() {
+                latest = Some(f);
+            }
+            if let Some(f) = latest {
+                tile.aspect = f.h as f32 / f.w as f32;
+                tile.video.set_frame(f);
+            }
+        }
+        if self.playing || !self.grid.is_empty() {
             ctx.request_repaint_after(std::time::Duration::from_millis(33));
         }
 
@@ -236,6 +257,7 @@ impl App {
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
                     ui.selectable_value(&mut self.tab, Tab::Live, "Live");
+                    ui.selectable_value(&mut self.tab, Tab::Grid, "Grid");
                     ui.selectable_value(&mut self.tab, Tab::Playback, "Playback");
                     ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
                     ui.selectable_value(&mut self.tab, Tab::Log, "Log");
@@ -291,6 +313,7 @@ impl App {
         });
         egui::CentralPanel::default().show(ctx, |ui| match self.tab {
             Tab::Live => self.live_ui(ui),
+            Tab::Grid => self.grid_ui(ui),
             Tab::Playback => self.playback_ui(ui),
             Tab::Settings => self.settings_ui(ui),
             Tab::Log => self.log_ui(ui),
@@ -328,23 +351,19 @@ impl App {
         ui.horizontal(|ui| {
             if !streaming {
                 if ui.button("▶ Live view").clicked() {
-                    // Only one live stream at a time: stop the previous so they don't overlap.
-                    if let Some(prev) = self.live_id.take() {
-                        let _ = self.tx.send(Cmd::StopLive(prev));
-                    }
+                    // Stop any single/grid streams first so decoded frames don't overlap.
+                    self.stop_all_streams();
                     self.live_id = Some(id.clone());
                     self.video = crate::video_gl::GpuVideo::new();
                     self.playing = true;
                     let _ = self.tx.send(Cmd::StartLive {
                         id: id.clone(),
                         frames: self.frame_tx.clone(),
+                        audio: true,
                     });
                 }
             } else if ui.button("Stop").clicked() {
-                self.live_id = None;
-                self.playing = false;
-                self.video = crate::video_gl::GpuVideo::new();
-                let _ = self.tx.send(Cmd::StopLive(id.clone()));
+                self.stop_all_streams();
             }
         });
         if self.video.has_frame() {
@@ -430,6 +449,101 @@ impl App {
                 }
             });
         }
+    }
+
+    /// Stop the single live stream and every grid tile, and reset their surfaces.
+    fn stop_all_streams(&mut self) {
+        if let Some(prev) = self.live_id.take() {
+            let _ = self.tx.send(Cmd::StopLive(prev));
+        }
+        for id in self.grid.keys().cloned().collect::<Vec<_>>() {
+            let _ = self.tx.send(Cmd::StopLive(id));
+        }
+        self.grid.clear();
+        self.video = crate::video_gl::GpuVideo::new();
+        self.playing = false;
+    }
+
+    fn start_grid(&mut self) {
+        self.stop_all_streams();
+        for c in self.cams.clone() {
+            if !c.online {
+                continue;
+            }
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.grid.insert(
+                c.id.clone(),
+                Tile {
+                    video: crate::video_gl::GpuVideo::new(),
+                    rx,
+                    aspect: 9.0 / 16.0,
+                },
+            );
+            // Grid tiles are muted: N cameras of overlapping audio would be noise.
+            let _ = self.tx.send(Cmd::StartLive {
+                id: c.id,
+                frames: tx,
+                audio: false,
+            });
+        }
+    }
+
+    fn grid_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if self.grid.is_empty() {
+                if ui.button("▶ Start all cameras").clicked() {
+                    self.start_grid();
+                }
+            } else if ui.button("Stop all").clicked() {
+                self.stop_all_streams();
+            }
+            ui.weak("All tiles are muted.");
+        });
+        if self.grid.is_empty() {
+            ui.add_space(8.0);
+            ui.label("Live view of every online camera at once.");
+            return;
+        }
+        // Snapshot tiles in camera order so the layout is stable across frames.
+        let tiles: Vec<(String, crate::video_gl::GpuVideo, f32)> = self
+            .cams
+            .iter()
+            .filter_map(|c| {
+                self.grid
+                    .get(&c.id)
+                    .map(|t| (c.name.clone(), t.video.clone(), t.aspect))
+            })
+            .collect();
+        let cols = (tiles.len() as f32).sqrt().ceil().max(1.0) as usize;
+        let spacing = 6.0;
+        let avail = ui.available_width();
+        let tw = ((avail - spacing * (cols as f32 - 1.0)) / cols as f32).max(80.0);
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for row in tiles.chunks(cols) {
+                ui.horizontal(|ui| {
+                    for (name, video, aspect) in row {
+                        ui.vertical(|ui| {
+                            ui.set_width(tw);
+                            ui.label(name);
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::vec2(tw, tw * *aspect),
+                                egui::Sense::hover(),
+                            );
+                            if video.has_frame() {
+                                video.paint(ui, rect);
+                            } else {
+                                ui.painter().rect_filled(
+                                    rect,
+                                    4.0,
+                                    egui::Color32::from_rgb(0x0A, 0x0F, 0x11),
+                                );
+                            }
+                        });
+                    }
+                });
+                ui.add_space(spacing);
+            }
+        });
     }
 
     fn playback_ui(&mut self, ui: &mut egui::Ui) {

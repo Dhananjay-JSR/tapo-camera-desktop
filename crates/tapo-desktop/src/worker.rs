@@ -42,6 +42,7 @@ pub enum Cmd {
     StartLive {
         id: String,
         frames: Sender<YuvFrame>,
+        audio: bool,
     },
     StopLive(String),
     Days(String),
@@ -179,7 +180,7 @@ pub fn spawn(
                     Toggle::Privacy => c.set_privacy(&id, on),
                     Toggle::Alarm => c.set_alarm(&id, on),
                 }),
-                Cmd::StartLive { id, frames } => {
+                Cmd::StartLive { id, frames, audio } => {
                     if lives.contains_key(&id) {
                         continue;
                     }
@@ -189,9 +190,10 @@ pub fn spawn(
                     let evt = evt.clone();
                     thread::spawn(move || {
                         let rate = c.mic_rate(&id).unwrap_or(16000);
+                        let speaker = if audio { Speaker::open() } else { None };
                         match c.open_stream(&id, json!({"audio_config": {"encode_type": "G711ulaw", "sample_rate": "16"}})) {
                             Ok(parts) => {
-                                if let Err(e) = stream::run(parts, frames, stop, Speaker::open(), rate) {
+                                if let Err(e) = stream::run(parts, frames, stop, speaker, rate) {
                                     let _ = evt.send(Evt::Error(e));
                                 }
                             }
