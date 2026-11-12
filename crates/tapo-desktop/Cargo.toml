@@ -16,6 +16,7 @@ serde_json = "1.0.133"
 directories = "5.0.1"
 cpal = "0.15.3"
 openh264 = "0.9.9"
+notify-rust = "4"
 
 [features]
 # Experimental macOS hardware decode (VideoToolbox); falls back to openh264 if it fails.

@@ -160,6 +160,9 @@ pub fn spawn(
                     let evt = evt.clone();
                     thread::spawn(move || match c.alerts(since, 0) {
                         Ok(a) => {
+                            for al in &a {
+                                crate::notify::show(&al.device, &al.text);
+                            }
                             let _ = evt.send(Evt::Alerts(a));
                         }
                         Err(e) => {

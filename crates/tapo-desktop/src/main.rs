@@ -8,6 +8,7 @@ mod decode;
 mod decode_vt;
 mod icon;
 mod logbuf;
+mod notify;
 mod store;
 mod stream;
 mod theme;
