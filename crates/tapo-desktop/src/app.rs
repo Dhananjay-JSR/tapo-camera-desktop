@@ -56,6 +56,7 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        crate::theme::apply(&cc.egui_ctx);
         let (evt_tx, rx) = std::sync::mpsc::channel();
         let ctx = cc.egui_ctx.clone();
         let tx = worker::spawn(store::load(), evt_tx, move || ctx.request_repaint());
@@ -230,43 +231,59 @@ impl App {
     }
 
     fn main_ui(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tab, Tab::Live, "Live");
-                ui.selectable_value(&mut self.tab, Tab::Playback, "Playback");
-                ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
-                ui.selectable_value(&mut self.tab, Tab::Log, "Log");
-                ui.separator();
-                if ui.checkbox(&mut self.notif_on, "Notifications").changed() && self.notif_on {
-                    self.poll_since = now_ms();
-                    let _ = self.tx.send(Cmd::Alerts(self.poll_since));
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Log out").clicked() {
-                        let _ = self.tx.send(Cmd::Logout);
+        egui::TopBottomPanel::top("tabs")
+            .exact_height(40.0)
+            .show(ctx, |ui| {
+                ui.horizontal_centered(|ui| {
+                    ui.selectable_value(&mut self.tab, Tab::Live, "Live");
+                    ui.selectable_value(&mut self.tab, Tab::Playback, "Playback");
+                    ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
+                    ui.selectable_value(&mut self.tab, Tab::Log, "Log");
+                    ui.separator();
+                    // Notifications is a toggle in the same borderless style as the tabs (filled when on).
+                    if ui
+                        .selectable_label(self.notif_on, "Notifications")
+                        .clicked()
+                    {
+                        self.notif_on = !self.notif_on;
+                        if self.notif_on {
+                            self.poll_since = now_ms();
+                            let _ = self.tx.send(Cmd::Alerts(self.poll_since));
+                        }
                     }
-                    if ui.button("About").clicked() {
-                        self.about_open = true;
-                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.selectable_label(false, "Log out").clicked() {
+                            let _ = self.tx.send(Cmd::Logout);
+                        }
+                        if ui.selectable_label(false, "About").clicked() {
+                            self.about_open = true;
+                        }
+                    });
                 });
             });
-        });
         egui::SidePanel::left("cams")
             .resizable(false)
             .show(ctx, |ui| {
                 ui.heading("Cameras");
                 for c in &self.cams.clone() {
-                    let dot = if c.online { "🟢" } else { "⚪" };
-                    if ui
-                        .selectable_label(
-                            self.selected.as_deref() == Some(&c.id),
-                            format!("{dot} {}", c.name),
-                        )
-                        .clicked()
-                    {
-                        self.selected = Some(c.id.clone());
-                        let _ = self.tx.send(Cmd::Presets(c.id.clone()));
-                    }
+                    ui.horizontal(|ui| {
+                        // painted status dot (green = online, grey = offline); egui's font lacks a filled circle glyph
+                        let col = if c.online {
+                            egui::Color32::from_rgb(0x46, 0xC4, 0x6E)
+                        } else {
+                            egui::Color32::from_rgb(0x6A, 0x76, 0x79)
+                        };
+                        let (r, _) =
+                            ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+                        ui.painter().circle_filled(r.center(), 4.0, col);
+                        if ui
+                            .selectable_label(self.selected.as_deref() == Some(&c.id), &c.name)
+                            .clicked()
+                        {
+                            self.selected = Some(c.id.clone());
+                            let _ = self.tx.send(Cmd::Presets(c.id.clone()));
+                        }
+                    });
                 }
             });
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
@@ -323,7 +340,7 @@ impl App {
                         frames: self.frame_tx.clone(),
                     });
                 }
-            } else if ui.button("⏹ Stop").clicked() {
+            } else if ui.button("Stop").clicked() {
                 self.live_id = None;
                 self.playing = false;
                 self.video = crate::video_gl::GpuVideo::new();
@@ -340,7 +357,7 @@ impl App {
         }
         ui.add_space(8.0);
         if ui
-            .checkbox(&mut self.talk_on, "🎤 Talk (hold the conversation open)")
+            .checkbox(&mut self.talk_on, "Talk (hold the conversation open)")
             .changed()
         {
             if self.talk_on {
@@ -359,40 +376,43 @@ impl App {
         ui.add_space(12.0);
 
         ui.label("Pan / tilt");
-        ui.horizontal(|ui| {
-            ui.add_space(30.0);
-            if ui.button("⬆").clicked() {
-                let _ = self.tx.send(Cmd::Ptz {
-                    id: id.clone(),
-                    x: 0,
-                    y: 20,
-                });
+        let btn = egui::vec2(34.0, 30.0);
+        let ptz = |x: i32, y: i32| {
+            let _ = self.tx.send(Cmd::Ptz {
+                id: id.clone(),
+                x,
+                y,
+            });
+        };
+        egui::Grid::new("ptz").spacing([4.0, 4.0]).show(ui, |ui| {
+            ui.allocate_exact_size(btn, egui::Sense::hover());
+            if ui.add_sized(btn, egui::Button::new("⬆")).clicked() {
+                ptz(0, 20);
             }
+            ui.end_row();
+            if ui.add_sized(btn, egui::Button::new("⬅")).clicked() {
+                ptz(-20, 0);
+            }
+            ui.allocate_exact_size(btn, egui::Sense::hover());
+            if ui.add_sized(btn, egui::Button::new("➡")).clicked() {
+                ptz(20, 0);
+            }
+            ui.end_row();
+            ui.allocate_exact_size(btn, egui::Sense::hover());
+            if ui.add_sized(btn, egui::Button::new("⬇")).clicked() {
+                ptz(0, -20);
+            }
+            ui.end_row();
         });
         ui.horizontal(|ui| {
-            if ui.button("⬅").clicked() {
-                let _ = self.tx.send(Cmd::Ptz {
+            if ui.button("Sweep").clicked() {
+                let _ = self.tx.send(Cmd::Cruise {
                     id: id.clone(),
-                    x: -20,
-                    y: 0,
+                    horizontal: true,
                 });
             }
-            if ui.button("➡").clicked() {
-                let _ = self.tx.send(Cmd::Ptz {
-                    id: id.clone(),
-                    x: 20,
-                    y: 0,
-                });
-            }
-        });
-        ui.horizontal(|ui| {
-            ui.add_space(30.0);
-            if ui.button("⬇").clicked() {
-                let _ = self.tx.send(Cmd::Ptz {
-                    id: id.clone(),
-                    x: 0,
-                    y: -20,
-                });
+            if ui.button("Stop sweep").clicked() {
+                let _ = self.tx.send(Cmd::CruiseStop(id.clone()));
             }
         });
 

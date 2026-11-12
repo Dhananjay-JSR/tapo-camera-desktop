@@ -10,6 +10,7 @@ mod icon;
 mod logbuf;
 mod store;
 mod stream;
+mod theme;
 mod video_gl;
 mod worker;
 

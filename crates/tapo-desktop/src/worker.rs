@@ -28,6 +28,11 @@ pub enum Cmd {
         id: String,
         preset: String,
     },
+    Cruise {
+        id: String,
+        horizontal: bool,
+    },
+    CruiseStop(String),
     Presets(String),
     Toggle {
         id: String,
@@ -165,6 +170,10 @@ pub fn spawn(
                 Cmd::Preset { id, preset } => {
                     quick(&cloud, &evt, move |c| c.goto_preset(&id, &preset))
                 }
+                Cmd::Cruise { id, horizontal } => {
+                    quick(&cloud, &evt, move |c| c.cruise(&id, horizontal))
+                }
+                Cmd::CruiseStop(id) => quick(&cloud, &evt, move |c| c.cruise_stop(&id)),
                 Cmd::Toggle { id, what, on } => quick(&cloud, &evt, move |c| match what {
                     Toggle::Led => c.set_led(&id, on),
                     Toggle::Privacy => c.set_privacy(&id, on),
